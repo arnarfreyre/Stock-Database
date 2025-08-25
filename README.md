@@ -1,221 +1,278 @@
-# Stock Price Visualization System
+# Stock Market Analysis Application
 
-A comprehensive web-based stock price visualization application with moving averages analysis, built with Flask backend and interactive Chart.js frontend.
+A comprehensive web-based stock market analysis platform with real-time data visualization, technical indicators, and modular architecture designed for scalability.
 
-## Features
-
-- **Interactive Price Charts**: Historical daily close prices with customizable date ranges
-- **Moving Averages**: 5-day, 20-day, and 40-day moving averages
-- **Volume Analysis**: Trading volume visualization with bar charts
-- **Real-time Updates**: Pull latest data from Yahoo Finance
-- **Statistics Dashboard**: Current price, daily change, period high/low, average volume, and volatility
-- **Responsive Design**: Beautiful UI using existing styles.css
-- **Database Storage**: SQLite database with optimized per-stock tables
-
-## System Architecture
+## 🏗️ Project Structure
 
 ```
-├── Backend (Python/Flask)
-│   ├── app.py              # Flask REST API server
-│   ├── create_database.py  # Database initialization
-│   ├── add_stock.py        # Stock data management
-│   └── stock_market.db     # SQLite database
+├── src/                      # Source code directory
+│   ├── backend/             # Backend services
+│   │   ├── app.py          # Flask REST API server
+│   │   └── stock_manager.py # Stock data management
+│   │
+│   ├── frontend/            # Frontend assets
+│   │   ├── index.html      # Main web interface
+│   │   ├── app.js          # JavaScript application
+│   │   └── styles.css      # Styling
+│   │
+│   ├── database/            # Database operations
+│   │   ├── initialize_db.py # Database initialization
+│   │   └── stock_market.db  # SQLite database
+│   │
+│   ├── config/              # Configuration management
+│   │   └── config.py       # Application settings
+│   │
+│   ├── utils/               # Utility functions
+│   │   └── calculations.py # Technical indicators
+│   │
+│   ├── analysis/            # Analysis tools (future expansion)
+│   │   └── stock_analyzer.py # Advanced analysis module
+│   │
+│   └── data/                # Data storage
+│       └── ticker-data.csv  # Ticker reference data
 │
-├── Frontend (HTML/JavaScript)
-│   ├── index.html          # Main web interface
-│   ├── app.js              # JavaScript application logic
-│   └── styles.css          # Styling (pre-existing)
-│
-└── Data
-    └── ticker-data.csv     # Sample ticker data
+├── docs/                    # Documentation
+├── tests/                   # Test suite
+├── run_app.py              # Main application runner
+├── init_db.py              # Database initialization script
+├── add_stock_cli.py        # CLI for adding stocks
+├── requirements.txt        # Python dependencies
+└── README.md               # This file
 ```
 
-## Installation
+## 🚀 Features
+
+### Current Features
+- **Interactive Price Charts**: Real-time visualization with Chart.js
+- **Technical Indicators**: 
+  - Moving Averages (5, 20, 40, 50-day)
+  - Volume Analysis
+  - Price Statistics
+- **Data Management**: 
+  - Yahoo Finance integration
+  - SQLite database with optimized per-stock tables
+  - Dynamic data updates
+- **Search Functionality**: Ticker search by symbol or company name
+- **Responsive Design**: Mobile-friendly interface
+
+### Analysis Module (Ready for Expansion)
+The `src/analysis/` directory contains a modular framework for adding advanced analysis tools:
+- **Technical Analysis**: RSI, MACD, Bollinger Bands (framework ready)
+- **Pattern Recognition**: Chart pattern identification (placeholder)
+- **Support/Resistance**: Automatic level detection (placeholder)
+- **Trend Analysis**: Trend strength and direction (placeholder)
+- **Backtesting**: Strategy testing framework (placeholder)
+
+## 📦 Installation
 
 ### Prerequisites
-
 - Python 3.7+
-- pip (Python package manager)
-- Modern web browser (Chrome, Firefox, Safari, Edge)
+- pip package manager
+- Modern web browser
 
-### Setup Instructions
+### Quick Start
 
-1. **Install Python dependencies**:
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd stock-market-app
+   ```
+
+2. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Create the database** (if not already created):
+3. **Initialize the database**:
    ```bash
-   python create_database.py
+   python init_db.py
    ```
 
-3. **Add stock data to database**:
+4. **Add stock data**:
    ```bash
-   python add_stock.py
+   python add_stock_cli.py AAPL 1y
+   python add_stock_cli.py MSFT 1y
+   python add_stock_cli.py GOOGL 1y
    ```
-   - Enter stock ticker (e.g., AAPL, MSFT, GOOGL)
-   - Select time period for historical data
-   - The script will fetch data from Yahoo Finance
 
-4. **Start the Flask server**:
+5. **Run the application**:
    ```bash
-   python app.py
+   python run_app.py
    ```
-   The server will start at `http://localhost:5000`
 
-5. **Open the web interface**:
-   - Open `index.html` in your web browser
-   - Or navigate to `file:///path/to/index.html`
-   - Make sure the Flask server is running
+6. **Open browser**:
+   Navigate to `http://localhost:5001`
 
-## Usage Guide
+## 🛠️ Development
 
-### Viewing Stock Charts
+### Running Individual Components
 
-1. **Select a Stock**: Choose from the dropdown menu of available stocks
-2. **Set Date Range**: Adjust start and end dates (defaults to last 6 months)
-3. **Choose Moving Averages**: Toggle MA-5, MA-20, and MA-40 checkboxes
-4. **Load Chart**: Click "Load Chart" button to display the visualization
-
-### Updating Stock Data
-
-1. Select the stock you want to update
-2. Click "Update from Yahoo Finance" button
-3. The system will fetch the latest data and refresh the charts
-
-### Understanding the Charts
-
-- **Price Chart**: Shows daily closing prices as a red line with optional moving averages
-  - Blue dashed line: 5-day moving average
-  - Green dashed line: 20-day moving average
-  - Purple dashed line: 40-day moving average
-
-- **Volume Chart**: Bar chart showing daily trading volumes
-
-- **Statistics Panel**: 
-  - Current Price: Latest closing price
-  - Daily Change: Price change from previous day
-  - Period High/Low: Maximum and minimum prices in selected period
-  - Average Volume: Mean trading volume
-  - Volatility: Annualized price volatility percentage
-
-## API Endpoints
-
-The Flask backend provides the following REST API endpoints:
-
-- `GET /api/stocks` - List all available stocks
-- `GET /api/stock/<ticker>/info` - Get stock information
-- `GET /api/stock/<ticker>/prices` - Get historical price data
-  - Query params: `start_date`, `end_date`
-- `POST /api/stock/<ticker>/update` - Update stock data from Yahoo Finance
-- `GET /api/health` - Health check endpoint
-
-## Database Schema
-
-### stocks_master table
-- `ticker` - Stock symbol (PRIMARY KEY)
-- `company_name` - Company full name
-- `sector` - Business sector
-- `exchange` - Stock exchange
-- `table_name` - Dynamic table name for price data
-- `total_records` - Number of price records
-- `date_range_start/end` - Available data range
-
-### {ticker}_prices tables (dynamic)
-- `date` - Trading date (PRIMARY KEY)
-- `open`, `high`, `low`, `close` - OHLC prices
-- `volume` - Trading volume
-- `ma_5`, `ma_20`, `ma_50` - Moving averages
-- Note: MA-40 is calculated dynamically in the application
-
-## Technical Implementation
-
-### Moving Average Calculation
-The 40-day moving average is calculated on-the-fly in the Flask backend since the database stores MA-50:
-
-```python
-def calculate_moving_average(prices, window=40):
-    # Simple moving average calculation
-    ma = []
-    for i in range(len(prices)):
-        if i < window - 1:
-            ma.append(None)
-        else:
-            avg = sum(prices[i - window + 1:i + 1]) / window
-            ma.append(round(avg, 4))
-    return ma
+**Flask API Server**:
+```bash
+python src/backend/app.py
 ```
 
-### Chart.js Configuration
-The application uses Chart.js v3+ for rendering interactive charts with:
-- Line charts for price data
-- Bar charts for volume data
-- Responsive design
-- Custom tooltips and formatting
-- Multiple dataset support for overlaying moving averages
+**Database Initialization**:
+```bash
+python src/database/initialize_db.py
+```
 
-## Troubleshooting
+**Add Stocks via CLI**:
+```bash
+python add_stock_cli.py <TICKER> [period]
+# Periods: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+```
 
-### Common Issues
+### Configuration
 
-1. **"Database not found" error**:
-   - Run `python create_database.py` first
+Edit `src/config/config.py` to modify:
+- Database paths
+- API host/port settings
+- Default parameters
+- File locations
 
-2. **"No stocks in database" message**:
-   - Add stocks using `python add_stock.py`
+## 📊 API Documentation
 
-3. **Charts not loading**:
-   - Ensure Flask server is running (`python app.py`)
-   - Check browser console for errors
-   - Verify API endpoint is accessible at `http://localhost:5000/api/health`
+### Endpoints
 
-4. **CORS errors**:
-   - Flask-CORS is configured to allow all origins
-   - If issues persist, check browser security settings
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/search/tickers` | Search tickers by symbol/name |
+| GET | `/api/stocks` | List all available stocks |
+| GET | `/api/stock/<ticker>/check` | Check if stock has data |
+| GET | `/api/stock/<ticker>/info` | Get stock information |
+| GET | `/api/stock/<ticker>/prices` | Get historical prices |
+| POST | `/api/stock/<ticker>/load` | Load stock data from Yahoo |
+| POST | `/api/stock/<ticker>/update` | Update existing stock data |
+| GET | `/api/health` | Health check |
 
-5. **Missing dependencies**:
-   - Run `pip install -r requirements.txt`
-   - Ensure all packages are installed successfully
+### Example Usage
 
-## Performance Optimization
+```javascript
+// Search for stocks
+fetch('http://localhost:5001/api/search/tickers?q=apple')
+  .then(response => response.json())
+  .then(data => console.log(data));
 
-- **Database**: Each stock has its own table for optimal query performance
-- **Indexing**: Date columns are indexed for fast retrieval
-- **Caching**: Browser caches static assets
-- **Data Transfer**: Only requested date ranges are fetched
-- **Chart Rendering**: Point radius set to 0 for better performance with large datasets
+// Get price data
+fetch('http://localhost:5001/api/stock/AAPL/prices?start_date=2024-01-01')
+  .then(response => response.json())
+  .then(data => console.log(data));
+```
 
-## Security Considerations
+## 🔧 Extending the Application
 
-- Input validation for ticker symbols
-- SQL injection protection through parameterized queries
-- CORS configured for development (restrict in production)
-- No sensitive data stored in frontend
+### Adding New Analysis Tools
 
-## Future Enhancements
+1. **Create new module** in `src/analysis/`:
+   ```python
+   # src/analysis/your_analyzer.py
+   from src.analysis.stock_analyzer import StockAnalyzer
+   
+   class YourAnalyzer(StockAnalyzer):
+       def your_analysis_method(self):
+           # Your implementation
+           pass
+   ```
 
-- [ ] Add more technical indicators (RSI, MACD, Bollinger Bands)
-- [ ] Implement user authentication
-- [ ] Add portfolio tracking features
-- [ ] Export charts as images
-- [ ] Real-time price updates via WebSocket
-- [ ] Compare multiple stocks on same chart
-- [ ] Add candlestick chart option
-- [ ] Mobile app version
+2. **Add API endpoint** in `src/backend/app.py`:
+   ```python
+   @app.route('/api/analysis/your-endpoint', methods=['GET'])
+   def your_analysis():
+       # Your endpoint logic
+       pass
+   ```
 
-## License
+3. **Update frontend** in `src/frontend/app.js`:
+   ```javascript
+   function callYourAnalysis() {
+       // Your frontend code
+   }
+   ```
 
-This project is for educational purposes. Stock data is provided by Yahoo Finance.
+### Adding New Technical Indicators
 
-## Support
+Add to `src/utils/calculations.py`:
+```python
+def calculate_your_indicator(prices, **params):
+    # Your calculation logic
+    return indicator_values
+```
+
+## 📈 Database Schema
+
+### stocks_master
+- Primary table for stock metadata
+- One record per stock ticker
+- Links to individual price tables
+
+### ticker_reference
+- Comprehensive ticker database
+- Symbol, name, sector, industry information
+
+### {ticker}_prices (Dynamic Tables)
+- Individual table per stock for performance
+- OHLC data, volume, moving averages
+- Date-indexed for fast queries
+
+## 🧪 Testing
+
+```bash
+# Run tests (when implemented)
+python -m pytest tests/
+```
+
+## 🔒 Security Considerations
+
+- Input validation for all user inputs
+- Parameterized SQL queries (injection protection)
+- CORS configured for development
+- No sensitive data in frontend code
+
+## 🚀 Future Roadmap
+
+### Phase 1: Enhanced Analysis
+- [ ] Complete RSI, MACD, Bollinger Bands implementation
+- [ ] Add pattern recognition algorithms
+- [ ] Implement support/resistance detection
+
+### Phase 2: Advanced Features
+- [ ] Portfolio management system
+- [ ] Multi-stock comparison charts
+- [ ] Real-time WebSocket updates
+- [ ] Export functionality (CSV, PDF)
+
+### Phase 3: Machine Learning
+- [ ] Price prediction models
+- [ ] Sentiment analysis integration
+- [ ] Automated trading signals
+
+### Phase 4: Enterprise Features
+- [ ] User authentication system
+- [ ] Role-based access control
+- [ ] API rate limiting
+- [ ] Cloud deployment ready
+
+## 📝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📄 License
+
+This project is for educational purposes. Stock data provided by Yahoo Finance.
+
+## 🆘 Support
 
 For issues or questions:
-1. Check the troubleshooting section above
-2. Review the API documentation
-3. Examine browser console for JavaScript errors
-4. Verify Python dependencies are installed
+1. Check the documentation
+2. Review API endpoints
+3. Verify dependencies are installed
+4. Check browser console for errors
 
 ---
 
-**Note**: This application requires an active internet connection to fetch stock data from Yahoo Finance and to load Chart.js from CDN.
+**Note**: Internet connection required for Yahoo Finance data and CDN resources.

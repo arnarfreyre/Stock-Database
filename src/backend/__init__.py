@@ -1,0 +1,1 @@
+"""Backend module for Flask API and stock data management"""

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solvers - Derivatives Course</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="main-header">
+            <h1>My toolbox: Financial Engineering</h1>
+            <p>Personalized Calculators and Solvers</p>
+            
+            <!-- Navigation tabs -->
+            <div class="nav-tabs">
+                <a href="index.html" class="nav-tab">Home</a>
+                <a href="my-tools.html" class="nav-tab active">My tools</a>
+            </div>
+        </div>
+
+        <div class="chapter-grid" id="solversContainer">
+            <!-- Solvers will be dynamically loaded here from config -->
+        </div>
+
+        <div class="resource-footer">
+            <h2>About the Solvers</h2>
+            <p>
+                These interactive solvers are designed to help you understand and apply derivative pricing models. 
+                Each solver includes detailed explanations of the underlying mathematics, step-by-step calculations, 
+                and the ability to export results for further analysis.
+            </p>
+            <p>
+                All calculations are performed in your browser using JavaScript for instant results. 
+                The formulas and methodologies used are consistent with the course material and industry standards.
+            </p>
+        </div>
+    </div>
+
+    <!-- Load configuration and render utilities -->
+    <script src="js/solvers-config.js"></script>
+    <script src="js/render-utils.js"></script>
+    
+    <script>
+        // Render solvers when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Render solvers from config
+            if (window.renderUtils && window.solversConfig) {
+                renderUtils.renderCards('solversContainer', solversConfig, 'solver');
+            } else {
+                console.error('Failed to load configuration or render utilities');
+            }
+        });
+    </script>
+</body>
+</html>
