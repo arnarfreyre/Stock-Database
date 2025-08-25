@@ -93,6 +93,22 @@ Each stock gets a table named `{TICKER}_prices` with:
 - RSI-14 technical indicator
 - Volume data
 
+## Important Implementation Details
+
+### Table Naming Convention
+Stock tables follow the pattern `{TICKER}_prices` where special characters in tickers are replaced:
+- Hyphens (`-`) → underscores (`_`)  
+- Periods (`.`) → underscores (`_`)
+- Example: `BRK-B` becomes `BRK_B_prices`
+
+### Moving Average Calculation
+The 40-day MA is calculated on-the-fly in the API (`app.py`) using `calculate_moving_average()` from `src/utils/calculations.py`, while 5, 20, and 50-day MAs are pre-calculated during data import.
+
+### Error Handling Patterns
+- Database operations use try-except with rollback on failure
+- API endpoints return consistent JSON with `success` flag and `error` field
+- Yahoo Finance failures are handled gracefully with user-friendly messages
+
 ## Frontend Structure
 
 The frontend (in `src/frontend/`) uses vanilla JavaScript with Chart.js for visualization. Key files:
@@ -103,3 +119,10 @@ The frontend (in `src/frontend/`) uses vanilla JavaScript with Chart.js for visu
 The frontend dynamically loads from CDN:
 - Chart.js for interactive price charts
 - Bootstrap for responsive design
+
+## Testing
+
+Currently no test suite exists. When implementing tests, consider:
+- Unit tests for calculation functions in `src/utils/calculations.py`
+- Integration tests for database operations in `StockDataManager`
+- API endpoint tests for Flask routes

@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historic Volatility Calculator</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="main-header">
+            <h1>Historic Volatility Calculator</h1>
+            <p>Calculate annualized volatility and risk metrics from historical price data</p>
+        </div>
+
+        <!-- Back Button -->
+        <div style="margin-bottom: 2rem;">
+            <button onclick="window.location.href='../my-tools.html'" class="back-button">
+                ← Back to Toolbox
+            </button>
+        </div>
+
+        <!-- Stock Selection Section -->
+        <div class="section visible">
+            <h2>Stock Selection & Parameters</h2>
+            
+            <div class="calculator">
+                <div class="input-group" style="position: relative;">
+                    <label for="stockSearch">Search Stock (Ticker or Name)</label>
+                    <input type="text" id="stockSearch" placeholder="Enter ticker symbol or company name..." autocomplete="off">
+                    <input type="hidden" id="selectedTicker" value="">
+                    <div id="searchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 4px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label for="startDate">Start Date</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="input-group">
+                        <label for="endDate">End Date</label>
+                        <input type="date" id="endDate">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button id="calculateBtn" class="btn-primary">Calculate Volatility</button>
+                    <button id="loadYahooDataBtn" class="btn-secondary" style="display: none;">Load Data from Yahoo Finance</button>
+                </div>
+                
+                <!-- No Data Message -->
+                <div id="noDataMessage" class="info-box" style="display: none; margin-top: 1.5rem;">
+                    <strong>ℹ️ No data available for this stock.</strong>
+                    <p style="margin: 0.5rem 0 0 0;">Click "Load Data from Yahoo Finance" to fetch historical data.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Primary Volatility Display -->
+        <div id="primaryVolatilitySection" class="section visible" style="display: none;">
+            <h2>Annualized Historic Volatility</h2>
+            <div class="key-concept" style="text-align: center;">
+                <h3 id="stockNameDisplay" style="color: #2c5282; margin-bottom: 1rem;">--</h3>
+                <div style="font-size: 3em; color: #e74c3c; font-weight: bold;">
+                    <span id="annualizedVolatility">--</span>%
+                </div>
+                <p style="margin-top: 1rem; color: #666;">
+                    Based on <span id="dataPointsCount">--</span> trading days from 
+                    <span id="dateRangeDisplay">--</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Volatility Breakdown -->
+        <div id="volatilityBreakdownSection" class="section visible" style="display: none;">
+            <h2>Volatility Breakdown</h2>
+            <div class="greeks-grid">
+                <div class="greek-card">
+                    <h4>Daily Volatility</h4>
+                    <p style="font-size: 1.5em; color: #3498db; font-weight: bold;">
+                        <span id="dailyVolatility">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Weekly Volatility</h4>
+                    <p style="font-size: 1.5em; color: #27ae60; font-weight: bold;">
+                        <span id="weeklyVolatility">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Monthly Volatility</h4>
+                    <p style="font-size: 1.5em; color: #9b59b6; font-weight: bold;">
+                        <span id="monthlyVolatility">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Volatility Percentile</h4>
+                    <p style="font-size: 1.5em; color: #f39c12; font-weight: bold;">
+                        <span id="volatilityPercentile">--</span>th
+                    </p>
+                    <p style="font-size: 0.9em; color: #666; margin-top: 0.5rem;">
+                        Current vs Historical
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Return Statistics -->
+        <div id="returnStatsSection" class="section visible" style="display: none;">
+            <h2>Return Statistics</h2>
+            <div class="greeks-grid">
+                <div class="greek-card">
+                    <h4>Mean Daily Return</h4>
+                    <p style="font-size: 1.3em; font-weight: bold;">
+                        <span id="meanReturn" style="color: #666;">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Maximum Daily Return</h4>
+                    <p style="font-size: 1.3em; color: #27ae60; font-weight: bold;">
+                        <span id="maxReturn">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Minimum Daily Return</h4>
+                    <p style="font-size: 1.3em; color: #e74c3c; font-weight: bold;">
+                        <span id="minReturn">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Return Skewness</h4>
+                    <p style="font-size: 1.3em; color: #3498db; font-weight: bold;">
+                        <span id="skewness">--</span>
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Return Kurtosis</h4>
+                    <p style="font-size: 1.3em; color: #9b59b6; font-weight: bold;">
+                        <span id="kurtosis">--</span>
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Trading Days</h4>
+                    <p style="font-size: 1.3em; color: #34495e; font-weight: bold;">
+                        <span id="tradingDays">--</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Term Structure -->
+        <div id="termStructureSection" class="section visible" style="display: none;">
+            <h2>Volatility Term Structure</h2>
+            <div class="formula-box" style="background: white; padding: 2rem;">
+                <canvas id="termStructureChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Volatility Percentiles -->
+        <div id="percentilesSection" class="section visible" style="display: none;">
+            <h2>Historical Volatility Distribution</h2>
+            <div class="key-concept warm">
+                <h3>Volatility Percentiles (Rolling 20-Day)</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                    <div style="text-align: center;">
+                        <strong>25th Percentile</strong>
+                        <p style="font-size: 1.2em; color: #27ae60; margin: 0.5rem 0;">
+                            <span id="vol25">--</span>%
+                        </p>
+                    </div>
+                    <div style="text-align: center;">
+                        <strong>Median (50th)</strong>
+                        <p style="font-size: 1.2em; color: #3498db; margin: 0.5rem 0;">
+                            <span id="vol50">--</span>%
+                        </p>
+                    </div>
+                    <div style="text-align: center;">
+                        <strong>75th Percentile</strong>
+                        <p style="font-size: 1.2em; color: #f39c12; margin: 0.5rem 0;">
+                            <span id="vol75">--</span>%
+                        </p>
+                    </div>
+                    <div style="text-align: center;">
+                        <strong>95th Percentile</strong>
+                        <p style="font-size: 1.2em; color: #e74c3c; margin: 0.5rem 0;">
+                            <span id="vol95">--</span>%
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Messages -->
+        <div id="errorMessage" class="warning-box" style="display: none;">
+            <strong>Error:</strong> <span id="errorText"></span>
+        </div>
+
+        <!-- Success Messages -->
+        <div id="successMessage" class="success-box" style="display: none;">
+            <strong>Success:</strong> <span id="successText"></span>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;">
+        <div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="text-align: center;">
+                <div style="width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #e74c3c; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                <p style="margin-top: 1rem; color: #666;">Calculating volatility...</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .search-result-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+        
+        .search-result-item:hover,
+        .search-result-item.selected {
+            background-color: #f8f9fa;
+        }
+        
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .search-result-symbol {
+            font-weight: bold;
+            color: #e74c3c;
+            font-size: 1.1em;
+        }
+        
+        .search-result-name {
+            color: #333;
+            margin-left: 10px;
+        }
+        
+        .search-result-sector {
+            display: block;
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 3px;
+        }
+        
+        .search-no-results {
+            padding: 15px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .search-highlight {
+            background-color: #ffeb3b;
+            padding: 1px 2px;
+            border-radius: 2px;
+        }
+    </style>
+
+    <script>
+        // API configuration
+        const API_BASE_URL = 'http://localhost:5001/api';
+        
+        // Global variables
+        let searchTimeout = null;
+        let selectedSearchIndex = -1;
+        let termStructureChart = null;
+        
+        // Initialize application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+        
+        async function initializeApp() {
+            // Set default dates (last 1 year)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            
+            document.getElementById('startDate').value = formatDate(startDate);
+            document.getElementById('endDate').value = formatDate(endDate);
+            
+            // Set up event listeners for search
+            setupSearchFunctionality();
+            
+            // Set up other event listeners
+            document.getElementById('calculateBtn').addEventListener('click', calculateVolatility);
+            document.getElementById('loadYahooDataBtn').addEventListener('click', loadYahooData);
+        }
+        
+        function setupSearchFunctionality() {
+            const searchInput = document.getElementById('stockSearch');
+            const searchResults = document.getElementById('searchResults');
+            
+            // Search input event listener with debouncing
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                if (query.length < 1) {
+                    searchResults.style.display = 'none';
+                    searchResults.innerHTML = '';
+                    document.getElementById('selectedTicker').value = '';
+                    return;
+                }
+                
+                // Debounce search requests (300ms)
+                searchTimeout = setTimeout(() => searchTickers(query), 300);
+            });
+            
+            // Handle keyboard navigation in search results
+            searchInput.addEventListener('keydown', function(e) {
+                const results = document.querySelectorAll('.search-result-item');
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedSearchIndex = Math.min(selectedSearchIndex + 1, results.length - 1);
+                    updateSelectedResult(results);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedSearchIndex = Math.max(selectedSearchIndex - 1, -1);
+                    updateSelectedResult(results);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedSearchIndex >= 0 && results[selectedSearchIndex]) {
+                        selectStock(results[selectedSearchIndex].dataset.symbol, 
+                                  results[selectedSearchIndex].dataset.name);
+                    }
+                } else if (e.key === 'Escape') {
+                    searchResults.style.display = 'none';
+                    selectedSearchIndex = -1;
+                }
+            });
+            
+            // Click outside to close search results
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.style.display = 'none';
+                    selectedSearchIndex = -1;
+                }
+            });
+        }
+        
+        async function searchTickers(query) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/search/tickers?q=${encodeURIComponent(query)}&limit=20`);
+                const data = await response.json();
+                
+                const searchResults = document.getElementById('searchResults');
+                searchResults.innerHTML = '';
+                selectedSearchIndex = -1;
+                
+                if (data.success && data.results.length > 0) {
+                    data.results.forEach(stock => {
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'search-result-item';
+                        resultItem.dataset.symbol = stock.symbol;
+                        resultItem.dataset.name = stock.name;
+                        
+                        // Highlight matching text
+                        const highlightedSymbol = highlightText(stock.symbol, query);
+                        const highlightedName = highlightText(stock.name, query);
+                        
+                        resultItem.innerHTML = `
+                            <span class="search-result-symbol">${highlightedSymbol}</span>
+                            <span class="search-result-name">${highlightedName}</span>
+                            <span class="search-result-sector">${stock.sector}</span>
+                        `;
+                        
+                        resultItem.addEventListener('click', function() {
+                            selectStock(stock.symbol, stock.name);
+                        });
+                        
+                        searchResults.appendChild(resultItem);
+                    });
+                    
+                    searchResults.style.display = 'block';
+                } else if (data.results.length === 0) {
+                    searchResults.innerHTML = '<div class="search-no-results">No results found</div>';
+                    searchResults.style.display = 'block';
+                } else {
+                    searchResults.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                const searchResults = document.getElementById('searchResults');
+                searchResults.innerHTML = '<div class="search-no-results">Error searching stocks</div>';
+                searchResults.style.display = 'block';
+            }
+        }
+        
+        function highlightText(text, query) {
+            const regex = new RegExp(`(${query})`, 'gi');
+            return text.replace(regex, '<span class="search-highlight">$1</span>');
+        }
+        
+        function updateSelectedResult(results) {
+            results.forEach((result, index) => {
+                if (index === selectedSearchIndex) {
+                    result.classList.add('selected');
+                    result.scrollIntoView({ block: 'nearest' });
+                } else {
+                    result.classList.remove('selected');
+                }
+            });
+        }
+        
+        function selectStock(symbol, name) {
+            document.getElementById('stockSearch').value = `${symbol} - ${name}`;
+            document.getElementById('selectedTicker').value = symbol;
+            document.getElementById('searchResults').style.display = 'none';
+            selectedSearchIndex = -1;
+            
+            // Check if stock has data
+            checkStockData(symbol);
+        }
+        
+        async function checkStockData(ticker) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stock/${ticker}/check`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const calculateBtn = document.getElementById('calculateBtn');
+                    const loadYahooBtn = document.getElementById('loadYahooDataBtn');
+                    const noDataMsg = document.getElementById('noDataMessage');
+                    
+                    if (data.has_data) {
+                        // Stock has data - show calculate button
+                        calculateBtn.style.display = 'inline-block';
+                        loadYahooBtn.style.display = 'none';
+                        noDataMsg.style.display = 'none';
+                        
+                        // Update date range to match available data
+                        if (data.data_info && data.data_info.date_range_start && data.data_info.date_range_end) {
+                            document.getElementById('startDate').value = data.data_info.date_range_start;
+                            document.getElementById('endDate').value = data.data_info.date_range_end;
+                        }
+                    } else {
+                        // Stock doesn't have data - show load from Yahoo button
+                        calculateBtn.style.display = 'none';
+                        loadYahooBtn.style.display = 'inline-block';
+                        noDataMsg.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking stock data:', error);
+            }
+        }
+        
+        async function loadYahooData() {
+            const ticker = document.getElementById('selectedTicker').value;
+            
+            if (!ticker) {
+                showError('Please search and select a stock ticker');
+                return;
+            }
+            
+            try {
+                showLoading(true);
+                hideMessages();
+                
+                const response = await fetch(`${API_BASE_URL}/stock/${ticker}/load`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ period: '2y' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(data.message);
+                    
+                    // Update UI to show calculate button
+                    document.getElementById('calculateBtn').style.display = 'inline-block';
+                    document.getElementById('loadYahooDataBtn').style.display = 'none';
+                    document.getElementById('noDataMessage').style.display = 'none';
+                    
+                    // Check stock info to update date ranges
+                    await checkStockData(ticker);
+                    
+                    // Automatically calculate volatility
+                    setTimeout(() => calculateVolatility(), 500);
+                } else {
+                    showError(data.error || 'Failed to load stock data from Yahoo Finance');
+                }
+                
+            } catch (error) {
+                showError('Error loading stock data: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function calculateVolatility() {
+            const ticker = document.getElementById('selectedTicker').value;
+            
+            if (!ticker) {
+                showError('Please select a stock ticker');
+                return;
+            }
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            try {
+                showLoading(true);
+                hideMessages();
+                hideResults();
+                
+                // Build query parameters
+                const params = new URLSearchParams();
+                if (startDate) params.append('start_date', startDate);
+                if (endDate) params.append('end_date', endDate);
+                
+                // Fetch volatility metrics
+                const response = await fetch(`${API_BASE_URL}/stock/${ticker}/volatility?${params}`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showError(data.error || 'Failed to calculate volatility');
+                    return;
+                }
+                
+                // Display results
+                displayVolatilityMetrics(data.metrics);
+                
+                showSuccess('Volatility calculated successfully');
+                
+            } catch (error) {
+                showError('Error calculating volatility: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function displayVolatilityMetrics(metrics) {
+            // Display primary volatility
+            document.getElementById('stockNameDisplay').textContent = 
+                `${metrics.ticker} - ${metrics.company_name}`;
+            document.getElementById('annualizedVolatility').textContent = 
+                metrics.annualized_volatility_pct.toFixed(2);
+            document.getElementById('dataPointsCount').textContent = metrics.data_points;
+            document.getElementById('dateRangeDisplay').textContent = 
+                `${metrics.date_range.start} to ${metrics.date_range.end}`;
+            
+            // Display volatility breakdown
+            document.getElementById('dailyVolatility').textContent = 
+                metrics.daily_volatility_pct.toFixed(3);
+            document.getElementById('weeklyVolatility').textContent = 
+                metrics.weekly_volatility_pct.toFixed(2);
+            document.getElementById('monthlyVolatility').textContent = 
+                metrics.monthly_volatility_pct.toFixed(2);
+            document.getElementById('volatilityPercentile').textContent = 
+                Math.round(metrics.current_percentile);
+            
+            // Display return statistics
+            document.getElementById('meanReturn').textContent = 
+                metrics.mean_return_pct.toFixed(3);
+            document.getElementById('maxReturn').textContent = 
+                metrics.max_return_pct.toFixed(2);
+            document.getElementById('minReturn').textContent = 
+                metrics.min_return_pct.toFixed(2);
+            document.getElementById('skewness').textContent = 
+                metrics.skewness.toFixed(3);
+            document.getElementById('kurtosis').textContent = 
+                metrics.kurtosis.toFixed(3);
+            document.getElementById('tradingDays').textContent = metrics.trading_days;
+            
+            // Display volatility percentiles
+            document.getElementById('vol25').textContent = 
+                (metrics.volatility_25th * 100).toFixed(3);
+            document.getElementById('vol50').textContent = 
+                (metrics.volatility_50th * 100).toFixed(3);
+            document.getElementById('vol75').textContent = 
+                (metrics.volatility_75th * 100).toFixed(3);
+            document.getElementById('vol95').textContent = 
+                (metrics.volatility_95th * 100).toFixed(3);
+            
+            // Display term structure chart
+            displayTermStructure(metrics);
+            
+            // Show all sections
+            document.getElementById('primaryVolatilitySection').style.display = 'block';
+            document.getElementById('volatilityBreakdownSection').style.display = 'block';
+            document.getElementById('returnStatsSection').style.display = 'block';
+            document.getElementById('termStructureSection').style.display = 'block';
+            document.getElementById('percentilesSection').style.display = 'block';
+        }
+        
+        function displayTermStructure(metrics) {
+            const ctx = document.getElementById('termStructureChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (termStructureChart) {
+                termStructureChart.destroy();
+            }
+            
+            // Prepare data for term structure
+            const labels = [];
+            const data = [];
+            
+            const periods = [5, 10, 20, 60, 120];
+            periods.forEach(period => {
+                const key = `volatility_${period}d`;
+                if (metrics[key] !== null && metrics[key] !== undefined) {
+                    labels.push(`${period} Days`);
+                    data.push(metrics[key] * 100);
+                }
+            });
+            
+            // Add current full-period volatility
+            labels.push('Full Period');
+            data.push(metrics.annualized_volatility_pct);
+            
+            // Create chart
+            termStructureChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Annualized Volatility (%)',
+                        data: data,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${metrics.ticker} - Volatility Term Structure`,
+                            font: {
+                                size: 16,
+                                family: 'Georgia, serif'
+                            }
+                        },
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Volatility: ' + context.parsed.y.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Lookback Period',
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Annualized Volatility (%)',
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                },
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function hideResults() {
+            document.getElementById('primaryVolatilitySection').style.display = 'none';
+            document.getElementById('volatilityBreakdownSection').style.display = 'none';
+            document.getElementById('returnStatsSection').style.display = 'none';
+            document.getElementById('termStructureSection').style.display = 'none';
+            document.getElementById('percentilesSection').style.display = 'none';
+        }
+        
+        // Utility functions
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+        }
+        
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').style.display = 'block';
+            setTimeout(hideMessages, 5000);
+        }
+        
+        function showSuccess(message) {
+            document.getElementById('successText').textContent = message;
+            document.getElementById('successMessage').style.display = 'block';
+            setTimeout(hideMessages, 5000);
+        }
+        
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

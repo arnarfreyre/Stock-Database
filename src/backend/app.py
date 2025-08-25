@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 import os
 from src.config import DATABASE_PATH, API_HOST, API_PORT, DEBUG_MODE
 from src.utils.calculations import calculate_moving_average
+from src.analysis.volatility_calculator import calculate_volatility_from_prices
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -372,6 +373,89 @@ def update_stock_data(ticker):
     # This endpoint now just calls load_stock_data which handles both new and existing stocks
     return load_stock_data(ticker)
 
+@app.route('/api/stock/<ticker>/volatility', methods=['GET'])
+def get_stock_volatility(ticker):
+    """Calculate and return volatility metrics for a stock."""
+    try:
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get table name for the ticker
+        cursor.execute('''
+            SELECT table_name, company_name FROM stocks_master WHERE ticker = ?
+        ''', (ticker.upper(),))
+        
+        result = cursor.fetchone()
+        if not result:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Stock not found'}), 404
+        
+        table_name = result['table_name']
+        company_name = result['company_name']
+        
+        # Build query for price data
+        query = f'''
+            SELECT date, close
+            FROM {table_name}
+        '''
+        
+        params = []
+        conditions = []
+        
+        if start_date:
+            conditions.append('date >= ?')
+            params.append(start_date)
+        
+        if end_date:
+            conditions.append('date <= ?')
+            params.append(end_date)
+        
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
+        
+        query += ' ORDER BY date ASC'
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        if not rows or len(rows) < 2:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Insufficient data for volatility calculation (need at least 2 data points)'}), 400
+        
+        # Extract prices and dates
+        dates = []
+        prices = []
+        
+        for row in rows:
+            dates.append(row['date'])
+            prices.append(float(row['close']))
+        
+        conn.close()
+        
+        # Calculate volatility metrics
+        volatility_metrics = calculate_volatility_from_prices(prices, dates)
+        
+        # Add additional context
+        volatility_metrics['ticker'] = ticker.upper()
+        volatility_metrics['company_name'] = company_name
+        volatility_metrics['date_range'] = {
+            'start': dates[0],
+            'end': dates[-1]
+        }
+        
+        return jsonify({
+            'success': True,
+            'ticker': ticker.upper(),
+            'metrics': volatility_metrics
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
@@ -412,6 +496,7 @@ if __name__ == '__main__':
     print("  GET  /api/stock/<ticker>/check - Check if stock has data")
     print("  GET  /api/stock/<ticker>/info - Get stock information")
     print("  GET  /api/stock/<ticker>/prices - Get historical prices")
+    print("  GET  /api/stock/<ticker>/volatility - Calculate volatility metrics")
     print("  POST /api/stock/<ticker>/load - Load stock data from Yahoo Finance")
     print("  POST /api/stock/<ticker>/update - Update stock data")
     print("  GET  /api/health - Health check")
