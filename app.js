@@ -1,0 +1,506 @@
+// Stock Price Visualization Application
+// Main JavaScript file for handling chart rendering and API interactions
+
+const API_BASE_URL = 'http://localhost:5001/api';
+
+// Global variables
+let priceChart = null;
+let volumeChart = null;
+let currentStockData = null;
+
+// Initialize application when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initializeApp();
+});
+
+async function initializeApp() {
+    // Set default dates (last 6 months)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 6);
+    
+    document.getElementById('startDate').value = formatDate(startDate);
+    document.getElementById('endDate').value = formatDate(endDate);
+    
+    // Load available stocks
+    await loadStocksList();
+    
+    // Set up event listeners
+    document.getElementById('loadDataBtn').addEventListener('click', loadStockData);
+    document.getElementById('updateDataBtn').addEventListener('click', updateStockData);
+    document.getElementById('stockSelector').addEventListener('change', onStockSelected);
+    
+    // MA checkbox listeners
+    document.getElementById('ma5').addEventListener('change', updateChart);
+    document.getElementById('ma20').addEventListener('change', updateChart);
+    document.getElementById('ma40').addEventListener('change', updateChart);
+}
+
+async function loadStocksList() {
+    try {
+        showLoading(true);
+        const response = await fetch(`${API_BASE_URL}/stocks`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const selector = document.getElementById('stockSelector');
+            selector.innerHTML = '<option value="">-- Select a Stock --</option>';
+            
+            data.stocks.forEach(stock => {
+                const option = document.createElement('option');
+                option.value = stock.ticker;
+                option.textContent = `${stock.ticker} - ${stock.company_name}`;
+                selector.appendChild(option);
+            });
+        } else {
+            showError('Failed to load stocks list');
+        }
+    } catch (error) {
+        showError('Error connecting to server: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function onStockSelected() {
+    const ticker = document.getElementById('stockSelector').value;
+    if (ticker) {
+        // Load stock info
+        try {
+            const response = await fetch(`${API_BASE_URL}/stock/${ticker}/info`);
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update date range to match available data
+                if (data.info.date_range_start && data.info.date_range_end) {
+                    document.getElementById('startDate').value = data.info.date_range_start;
+                    document.getElementById('endDate').value = data.info.date_range_end;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading stock info:', error);
+        }
+    }
+}
+
+async function loadStockData() {
+    const ticker = document.getElementById('stockSelector').value;
+    
+    if (!ticker) {
+        showError('Please select a stock ticker');
+        return;
+    }
+    
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    try {
+        showLoading(true);
+        hideMessages();
+        
+        // Fetch stock info
+        const infoResponse = await fetch(`${API_BASE_URL}/stock/${ticker}/info`);
+        const infoData = await infoResponse.json();
+        
+        if (!infoData.success) {
+            showError(infoData.error || 'Failed to load stock information');
+            return;
+        }
+        
+        // Fetch price data
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        
+        const priceResponse = await fetch(`${API_BASE_URL}/stock/${ticker}/prices?${params}`);
+        const priceData = await priceResponse.json();
+        
+        if (!priceData.success) {
+            showError(priceData.error || 'Failed to load price data');
+            return;
+        }
+        
+        // Store data globally
+        currentStockData = priceData.data;
+        
+        // Display stock information
+        displayStockInfo(infoData.info);
+        
+        // Display charts
+        displayPriceChart(priceData.data);
+        displayVolumeChart(priceData.data);
+        
+        // Display statistics
+        displayStatistics(priceData.data);
+        
+        // Show sections
+        document.getElementById('stockInfo').style.display = 'block';
+        document.getElementById('chartSection').style.display = 'block';
+        document.getElementById('volumeSection').style.display = 'block';
+        document.getElementById('statsSection').style.display = 'block';
+        
+        showSuccess(`Loaded ${priceData.data.total_points} data points for ${ticker}`);
+        
+    } catch (error) {
+        showError('Error loading stock data: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function updateStockData() {
+    const ticker = document.getElementById('stockSelector').value;
+    
+    if (!ticker) {
+        showError('Please select a stock ticker');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        hideMessages();
+        
+        const response = await fetch(`${API_BASE_URL}/stock/${ticker}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ period: '1y' })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showSuccess(data.message);
+            // Reload the chart with updated data
+            setTimeout(() => loadStockData(), 1000);
+        } else {
+            showError(data.error || 'Failed to update stock data');
+        }
+        
+    } catch (error) {
+        showError('Error updating stock data: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+function displayStockInfo(info) {
+    document.getElementById('stockName').textContent = info.company_name;
+    document.getElementById('infoTicker').textContent = info.ticker;
+    document.getElementById('infoSector').textContent = info.sector;
+    document.getElementById('infoExchange').textContent = info.exchange;
+    document.getElementById('infoDataPoints').textContent = info.total_records;
+    document.getElementById('infoDateRange').textContent = 
+        `${info.date_range_start} to ${info.date_range_end}`;
+    document.getElementById('infoLastUpdated').textContent = 
+        new Date(info.last_updated).toLocaleString();
+}
+
+function displayPriceChart(data) {
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (priceChart) {
+        priceChart.destroy();
+    }
+    
+    // Prepare datasets
+    const datasets = [
+        {
+            label: 'Close Price',
+            data: data.prices,
+            borderColor: '#e74c3c',
+            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            tension: 0.1
+        }
+    ];
+    
+    // Add moving averages if checked
+    if (document.getElementById('ma5').checked && data.ma_5) {
+        datasets.push({
+            label: '5-Day MA',
+            data: data.ma_5,
+            borderColor: '#3498db',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            borderDash: [5, 5]
+        });
+    }
+    
+    if (document.getElementById('ma20').checked && data.ma_20) {
+        datasets.push({
+            label: '20-Day MA',
+            data: data.ma_20,
+            borderColor: '#27ae60',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            borderDash: [5, 5]
+        });
+    }
+    
+    if (document.getElementById('ma40').checked && data.ma_40) {
+        datasets.push({
+            label: '40-Day MA',
+            data: data.ma_40,
+            borderColor: '#9b59b6',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            borderDash: [5, 5]
+        });
+    }
+    
+    // Create chart
+    priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: `${data.ticker} - Historical Prices with Moving Averages`,
+                    font: {
+                        size: 16,
+                        family: 'Georgia, serif'
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += '$' + context.parsed.y.toFixed(2);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    },
+                    ticks: {
+                        maxTicksLimit: 10,
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Price ($)',
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        },
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function displayVolumeChart(data) {
+    const ctx = document.getElementById('volumeChart').getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (volumeChart) {
+        volumeChart.destroy();
+    }
+    
+    // Create volume chart
+    volumeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.dates,
+            datasets: [{
+                label: 'Volume',
+                data: data.volumes,
+                backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                borderColor: '#3498db',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `${data.ticker} - Trading Volume`,
+                    font: {
+                        size: 16,
+                        family: 'Georgia, serif'
+                    }
+                },
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Volume: ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    },
+                    ticks: {
+                        maxTicksLimit: 10,
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Volume',
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        },
+                        font: {
+                            family: 'Georgia, serif'
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function displayStatistics(data) {
+    // Calculate statistics
+    const prices = data.prices.filter(p => p !== null);
+    const currentPrice = prices[prices.length - 1];
+    const previousPrice = prices[prices.length - 2];
+    const dailyChange = currentPrice - previousPrice;
+    const dailyChangePercent = (dailyChange / previousPrice * 100).toFixed(2);
+    
+    const periodHigh = Math.max(...prices);
+    const periodLow = Math.min(...prices);
+    
+    const volumes = data.volumes.filter(v => v !== null && v > 0);
+    const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+    
+    // Calculate volatility (standard deviation of daily returns)
+    const returns = [];
+    for (let i = 1; i < prices.length; i++) {
+        returns.push((prices[i] - prices[i-1]) / prices[i-1]);
+    }
+    const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+    const volatility = Math.sqrt(variance * 252) * 100; // Annualized volatility
+    
+    // Update display
+    document.getElementById('currentPrice').textContent = currentPrice.toFixed(2);
+    
+    const changeElement = document.getElementById('dailyChange');
+    changeElement.textContent = `${dailyChange >= 0 ? '+' : ''}${dailyChange.toFixed(2)} (${dailyChangePercent}%)`;
+    changeElement.style.color = dailyChange >= 0 ? '#27ae60' : '#e74c3c';
+    
+    document.getElementById('periodHigh').textContent = periodHigh.toFixed(2);
+    document.getElementById('periodLow').textContent = periodLow.toFixed(2);
+    document.getElementById('avgVolume').textContent = formatNumber(avgVolume);
+    document.getElementById('volatility').textContent = volatility.toFixed(2);
+}
+
+function updateChart() {
+    if (currentStockData) {
+        displayPriceChart(currentStockData);
+    }
+}
+
+// Utility functions
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatNumber(num) {
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+    return num.toFixed(0);
+}
+
+function showLoading(show) {
+    document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+}
+
+function showError(message) {
+    document.getElementById('errorText').textContent = message;
+    document.getElementById('errorMessage').style.display = 'block';
+    setTimeout(hideMessages, 5000);
+}
+
+function showSuccess(message) {
+    document.getElementById('successText').textContent = message;
+    document.getElementById('successMessage').style.display = 'block';
+    setTimeout(hideMessages, 5000);
+}
+
+function hideMessages() {
+    document.getElementById('errorMessage').style.display = 'none';
+    document.getElementById('successMessage').style.display = 'none';
+}
