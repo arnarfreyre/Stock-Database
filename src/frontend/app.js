@@ -9,11 +9,137 @@ let volumeChart = null;
 let currentStockData = null;
 let searchTimeout = null;
 let selectedSearchIndex = -1;
+let allDatasets = {}; // Store all datasets for toggling
 
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
 });
+
+// Fullscreen functionality
+function toggleFullscreen(containerId) {
+    const container = document.getElementById(containerId);
+    
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        // Enter fullscreen
+        if (container.requestFullscreen) {
+            container.requestFullscreen();
+        } else if (container.webkitRequestFullscreen) {
+            // Safari support
+            container.webkitRequestFullscreen();
+        } else if (container.msRequestFullscreen) {
+            // IE11 support
+            container.msRequestFullscreen();
+        }
+        
+        // Set up fullscreen event listeners
+        setupFullscreenListeners(containerId);
+        
+        // Update charts to fit the new size
+        setTimeout(() => {
+            if (priceChart) priceChart.resize();
+            if (volumeChart) volumeChart.resize();
+        }, 100);
+    } else {
+        // Exit fullscreen
+        exitFullscreen();
+    }
+}
+
+function exitFullscreen() {
+    if (document.exitFullscreen) {
+        document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+        // Safari support
+        document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+        // IE11 support
+        document.msExitFullscreen();
+    }
+}
+
+function setupFullscreenListeners(containerId) {
+    // Determine which chart we're working with
+    const isPriceChart = containerId === 'priceChartContainer';
+    const chartType = isPriceChart ? 'price' : 'volume';
+    
+    // Sync date inputs with main date inputs
+    const startDateInput = document.getElementById(`fs-startDate-${chartType}`);
+    const endDateInput = document.getElementById(`fs-endDate-${chartType}`);
+    if (startDateInput && endDateInput) {
+        startDateInput.value = document.getElementById('startDate').value;
+        endDateInput.value = document.getElementById('endDate').value;
+    }
+    
+    // Set up sidebar checkbox listeners for the specific chart
+    if (isPriceChart) {
+        // Price chart toggles
+        const stockPriceCheckbox = document.getElementById('fs-stockPrice-price');
+        const ma5Checkbox = document.getElementById('fs-ma5-price');
+        const ma20Checkbox = document.getElementById('fs-ma20-price');
+        const ma40Checkbox = document.getElementById('fs-ma40-price');
+        
+        // Sync with main checkboxes
+        stockPriceCheckbox.checked = document.getElementById('stockPrice').checked;
+        ma5Checkbox.checked = document.getElementById('ma5').checked;
+        ma20Checkbox.checked = document.getElementById('ma20').checked;
+        ma40Checkbox.checked = document.getElementById('ma40').checked;
+        
+        // Add event listeners
+        stockPriceCheckbox.onchange = function() {
+            document.getElementById('stockPrice').checked = this.checked;
+            toggleDataset('price');
+        };
+        
+        ma5Checkbox.onchange = function() {
+            document.getElementById('ma5').checked = this.checked;
+            toggleDataset('ma5');
+        };
+        
+        ma20Checkbox.onchange = function() {
+            document.getElementById('ma20').checked = this.checked;
+            toggleDataset('ma20');
+        };
+        
+        ma40Checkbox.onchange = function() {
+            document.getElementById('ma40').checked = this.checked;
+            toggleDataset('ma40');
+        };
+    } else {
+        // Volume chart toggles (for future use)
+        const volumeBarsCheckbox = document.getElementById('fs-volume-bars');
+        if (volumeBarsCheckbox) {
+            volumeBarsCheckbox.onchange = function() {
+                // Future implementation for volume chart options
+                if (volumeChart && this.checked === false) {
+                    volumeChart.data.datasets[0].hidden = true;
+                    volumeChart.update('none');
+                } else if (volumeChart) {
+                    volumeChart.data.datasets[0].hidden = false;
+                    volumeChart.update('none');
+                }
+            };
+        }
+    }
+    
+    // Listen for fullscreen exit to clean up
+    const fullscreenChangeHandler = function() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            // Clean up event listeners when exiting fullscreen
+            document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
+            document.removeEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+            
+            // Resize charts back to normal
+            setTimeout(() => {
+                if (priceChart) priceChart.resize();
+                if (volumeChart) volumeChart.resize();
+            }, 100);
+        }
+    };
+    
+    document.addEventListener('fullscreenchange', fullscreenChangeHandler);
+    document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+}
 
 async function initializeApp() {
     // Set default dates (last 6 months)
@@ -32,10 +158,11 @@ async function initializeApp() {
     document.getElementById('loadYahooDataBtn').addEventListener('click', loadYahooData);
     document.getElementById('updateDataBtn').addEventListener('click', updateStockData);
     
-    // MA checkbox listeners
-    document.getElementById('ma5').addEventListener('change', updateChart);
-    document.getElementById('ma20').addEventListener('change', updateChart);
-    document.getElementById('ma40').addEventListener('change', updateChart);
+    // Chart line toggle listeners - they toggle visibility without reloading data
+    document.getElementById('stockPrice').addEventListener('change', () => toggleDataset('price'));
+    document.getElementById('ma5').addEventListener('change', () => toggleDataset('ma5'));
+    document.getElementById('ma20').addEventListener('change', () => toggleDataset('ma20'));
+    document.getElementById('ma40').addEventListener('change', () => toggleDataset('ma40'));
 }
 
 function setupSearchFunctionality() {
@@ -287,7 +414,7 @@ async function loadYahooData() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ period: '1y' })
+            body: JSON.stringify({ period: 'max' })
         });
         
         const data = await response.json();
@@ -334,7 +461,7 @@ async function updateStockData() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ period: '1y' })
+            body: JSON.stringify({ period: 'max' })
         });
         
         const data = await response.json();
@@ -374,9 +501,9 @@ function displayPriceChart(data) {
         priceChart.destroy();
     }
     
-    // Prepare datasets
-    const datasets = [
-        {
+    // Prepare all datasets - load them all but control visibility
+    allDatasets = {
+        price: {
             label: 'Close Price',
             data: data.prices,
             borderColor: '#e74c3c',
@@ -384,46 +511,48 @@ function displayPriceChart(data) {
             borderWidth: 2,
             pointRadius: 0,
             pointHoverRadius: 5,
-            tension: 0.1
-        }
-    ];
-    
-    // Add moving averages if checked
-    if (document.getElementById('ma5').checked && data.ma_5) {
-        datasets.push({
+            tension: 0.1,
+            hidden: !document.getElementById('stockPrice').checked  // Respect checkbox state
+        },
+        ma5: {
             label: '5-Day MA',
             data: data.ma_5,
             borderColor: '#3498db',
             borderWidth: 1.5,
             pointRadius: 0,
             fill: false,
-            borderDash: [5, 5]
-        });
-    }
-    
-    if (document.getElementById('ma20').checked && data.ma_20) {
-        datasets.push({
+            borderDash: [5, 5],
+            hidden: !document.getElementById('ma5').checked  // Respect checkbox state
+        },
+        ma20: {
             label: '20-Day MA',
             data: data.ma_20,
             borderColor: '#27ae60',
             borderWidth: 1.5,
             pointRadius: 0,
             fill: false,
-            borderDash: [5, 5]
-        });
-    }
-    
-    if (document.getElementById('ma40').checked && data.ma_40) {
-        datasets.push({
+            borderDash: [5, 5],
+            hidden: !document.getElementById('ma20').checked  // Respect checkbox state
+        },
+        ma40: {
             label: '40-Day MA',
             data: data.ma_40,
             borderColor: '#9b59b6',
             borderWidth: 1.5,
             pointRadius: 0,
             fill: false,
-            borderDash: [5, 5]
-        });
-    }
+            borderDash: [5, 5],
+            hidden: !document.getElementById('ma40').checked  // Respect checkbox state
+        }
+    };
+    
+    // Build datasets array - always include all datasets
+    const datasets = [allDatasets.price];
+    
+    // Add MA datasets if they exist in the data
+    if (data.ma_5) datasets.push(allDatasets.ma5);
+    if (data.ma_20) datasets.push(allDatasets.ma20);
+    if (data.ma_40) datasets.push(allDatasets.ma40);
     
     // Create chart
     priceChart = new Chart(ctx, {
@@ -632,10 +761,52 @@ function displayStatistics(data) {
     document.getElementById('volatility').textContent = volatility.toFixed(2);
 }
 
-function updateChart() {
-    if (currentStockData) {
-        displayPriceChart(currentStockData);
+function toggleDataset(datasetType) {
+    if (!priceChart) return;
+    
+    // Find the dataset index based on label
+    const datasetLabels = {
+        'price': 'Close Price',
+        'ma5': '5-Day MA',
+        'ma20': '20-Day MA',
+        'ma40': '40-Day MA'
+    };
+    
+    const label = datasetLabels[datasetType];
+    const datasetIndex = priceChart.data.datasets.findIndex(ds => ds.label === label);
+    
+    if (datasetIndex !== -1) {
+        // Toggle the visibility
+        const isHidden = priceChart.getDatasetMeta(datasetIndex).hidden;
+        priceChart.getDatasetMeta(datasetIndex).hidden = !isHidden;
+        
+        // Update the chart to show/hide the dataset
+        priceChart.update('none'); // 'none' animation mode for instant update
     }
+}
+
+// Date range preset function
+function setDateRange(value, unit) {
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    if (value === 'all') {
+        // Set start date to 10 years ago for "ALL" option
+        startDate.setFullYear(startDate.getFullYear() - 10);
+    } else {
+        // Calculate the start date based on the period
+        if (unit === 'months') {
+            startDate.setMonth(startDate.getMonth() - value);
+        } else if (unit === 'year') {
+            startDate.setFullYear(startDate.getFullYear() - value);
+        } else if (unit === 'years') {
+            startDate.setFullYear(startDate.getFullYear() - value);
+        }
+    }
+    
+    // Update the date inputs
+    document.getElementById('startDate').value = formatDate(startDate);
+    document.getElementById('endDate').value = formatDate(endDate);
 }
 
 // Utility functions
@@ -672,4 +843,73 @@ function showSuccess(message) {
 function hideMessages() {
     document.getElementById('errorMessage').style.display = 'none';
     document.getElementById('successMessage').style.display = 'none';
+}
+
+// Fullscreen date range functions
+function setDateRangeFullscreen(value, unit, chartType) {
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    if (value === 'all') {
+        // Set start date to 10 years ago for "MAX" option
+        startDate.setFullYear(startDate.getFullYear() - 10);
+    } else {
+        // Calculate the start date based on the period
+        if (unit === 'months') {
+            startDate.setMonth(startDate.getMonth() - value);
+        } else if (unit === 'year') {
+            startDate.setFullYear(startDate.getFullYear() - value);
+        } else if (unit === 'years') {
+            startDate.setFullYear(startDate.getFullYear() - value);
+        }
+    }
+    
+    // Update the fullscreen date inputs
+    const startDateInput = document.getElementById(`fs-startDate-${chartType}`);
+    const endDateInput = document.getElementById(`fs-endDate-${chartType}`);
+    
+    if (startDateInput && endDateInput) {
+        startDateInput.value = formatDate(startDate);
+        endDateInput.value = formatDate(endDate);
+        
+        // Also update the main date inputs
+        document.getElementById('startDate').value = formatDate(startDate);
+        document.getElementById('endDate').value = formatDate(endDate);
+        
+        // Reload the chart with new dates
+        loadStockData();
+    }
+    
+    // Update active state on preset buttons
+    updatePresetButtonStates(chartType);
+}
+
+function applyCustomDateRange(chartType) {
+    const startDateInput = document.getElementById(`fs-startDate-${chartType}`);
+    const endDateInput = document.getElementById(`fs-endDate-${chartType}`);
+    
+    if (startDateInput && endDateInput && startDateInput.value && endDateInput.value) {
+        // Update the main date inputs
+        document.getElementById('startDate').value = startDateInput.value;
+        document.getElementById('endDate').value = endDateInput.value;
+        
+        // Reload the chart with new dates
+        loadStockData();
+        
+        // Clear active state from preset buttons
+        updatePresetButtonStates(chartType);
+    }
+}
+
+function updatePresetButtonStates(chartType) {
+    // This would update the visual state of preset buttons to show which is active
+    // For now, we'll just clear all active states when custom dates are applied
+    const container = chartType === 'price' ? 
+        document.getElementById('priceChartContainer') : 
+        document.getElementById('volumeChartContainer');
+    
+    if (container) {
+        const buttons = container.querySelectorAll('.date-preset-btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+    }
 }

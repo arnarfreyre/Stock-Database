@@ -380,6 +380,7 @@ def get_stock_volatility(ticker):
         # Get query parameters
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
+        period_days = request.args.get('period', '252')  # Default to 252 trading days (1 year)
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -398,26 +399,45 @@ def get_stock_volatility(ticker):
         company_name = result['company_name']
         
         # Build query for price data
-        query = f'''
-            SELECT date, close
-            FROM {table_name}
-        '''
-        
-        params = []
-        conditions = []
-        
-        if start_date:
-            conditions.append('date >= ?')
-            params.append(start_date)
-        
-        if end_date:
-            conditions.append('date <= ?')
-            params.append(end_date)
-        
-        if conditions:
-            query += ' WHERE ' + ' AND '.join(conditions)
-        
-        query += ' ORDER BY date ASC'
+        if not start_date and not end_date:
+            # Default: Get last N trading days
+            try:
+                period_int = int(period_days)
+            except ValueError:
+                period_int = 252
+                
+            query = f'''
+                SELECT date, close
+                FROM {table_name}
+                WHERE date >= (SELECT date
+                             FROM {table_name}
+                             ORDER BY date
+                             DESC LIMIT 1 OFFSET {period_int - 1})
+                ORDER BY date ASC
+            '''
+            params = []
+        else:
+            # Use provided date range
+            query = f'''
+                SELECT date, close
+                FROM {table_name}
+            '''
+            
+            params = []
+            conditions = []
+            
+            if start_date:
+                conditions.append('date >= ?')
+                params.append(start_date)
+            
+            if end_date:
+                conditions.append('date <= ?')
+                params.append(end_date)
+            
+            if conditions:
+                query += ' WHERE ' + ' AND '.join(conditions)
+            
+            query += ' ORDER BY date ASC'
         
         cursor.execute(query, params)
         rows = cursor.fetchall()

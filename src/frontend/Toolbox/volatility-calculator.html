@@ -35,6 +35,19 @@
                     </div>
                 </div>
 
+                <!-- Date Range Presets -->
+                <div class="input-group">
+                    <label>Quick Date Ranges</label>
+                    <div class="date-presets" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                        <button type="button" class="btn-preset" onclick="setDateRange(3, 'months')">3 Months</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange(6, 'months')">6 Months</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange(1, 'year')">1 Year</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange(2, 'years')">2 Years</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange(5, 'years')">5 Years</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange('all')">All</button>
+                    </div>
+                </div>
+
                 <div class="input-row">
                     <div class="input-group">
                         <label for="startDate">Start Date</label>
@@ -264,6 +277,29 @@
             background-color: #ffeb3b;
             padding: 1px 2px;
             border-radius: 2px;
+        }
+        
+        .btn-preset {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.9rem;
+            background-color: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: Georgia, serif;
+        }
+        
+        .btn-preset:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+        }
+        
+        .btn-preset:active {
+            transform: translateY(0);
+            background-color: #dee2e6;
         }
     </style>
 
@@ -709,6 +745,30 @@
             document.getElementById('returnStatsSection').style.display = 'none';
             document.getElementById('termStructureSection').style.display = 'none';
             document.getElementById('percentilesSection').style.display = 'none';
+        }
+        
+        // Date range preset function
+        function setDateRange(value, unit) {
+            const endDate = new Date();
+            const startDate = new Date();
+            
+            if (value === 'all') {
+                // Set start date to 10 years ago for "ALL" option
+                startDate.setFullYear(startDate.getFullYear() - 10);
+            } else {
+                // Calculate the start date based on the period
+                if (unit === 'months') {
+                    startDate.setMonth(startDate.getMonth() - value);
+                } else if (unit === 'year') {
+                    startDate.setFullYear(startDate.getFullYear() - value);
+                } else if (unit === 'years') {
+                    startDate.setFullYear(startDate.getFullYear() - value);
+                }
+            }
+            
+            // Update the date inputs
+            document.getElementById('startDate').value = formatDate(startDate);
+            document.getElementById('endDate').value = formatDate(endDate);
         }
         
         // Utility functions

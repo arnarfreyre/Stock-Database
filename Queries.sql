@@ -3,10 +3,10 @@ WITH daily_returns AS (
     SELECT
         date,
         close,
-        LOG(close / LAG(close) OVER (ORDER BY date)) as log_return
-    FROM AAPL_prices
+        LN(close / LAG(close) OVER (ORDER BY date)) as log_return
+    FROM SONY_prices
     WHERE date >= (SELECT date
-                 FROM AAPL_prices
+                 FROM SONY_prices
                  ORDER BY date
                  DESC LIMIT 1 OFFSET 251)
 ORDER BY date
