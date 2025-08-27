@@ -26,3 +26,10 @@ SELECT
     daily_volatility * SQRT(252) * 100 as annualized_volatility_pct,
     num_observations
 FROM volatility_calc;
+
+
+insert into ticker_reference
+    Values ('^GSPC','S&P 500','Index','Index','2025-08-27 15:20:00','2025-08-27 15:20:00');
+
+DELETE FROM ticker_reference
+WHERE symbol = 'GSPC';

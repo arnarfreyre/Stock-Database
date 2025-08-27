@@ -68,8 +68,8 @@ class StockDataManager:
         Returns:
             bool: True if valid, False otherwise
         """
-        # Ticker should be 1-10 alphanumeric characters
-        pattern = r'^[A-Z0-9\-\.]{1,10}$'
+        # Ticker should be 1-10 characters (alphanumeric, hyphens, periods, or carets for indices)
+        pattern = r'^[A-Z0-9\-\.\^]{1,10}$'
         return bool(re.match(pattern, ticker.upper()))
         
     def sanitize_table_name(self, ticker: str) -> str:
@@ -82,8 +82,8 @@ class StockDataManager:
         Returns:
             str: Sanitized table name
         """
-        # Replace special characters with underscores
-        table_name = ticker.upper().replace('-', '_').replace('.', '_')
+        # Replace special characters with underscores (including ^ for index tickers)
+        table_name = ticker.upper().replace('-', '_').replace('.', '_').replace('^', '_')
         return f"{table_name}_prices"
         
     def ticker_exists(self, ticker: str) -> bool:
@@ -146,9 +146,10 @@ class StockDataManager:
                 ON {table_name}(date DESC)
             ''')
             
-            # Create a view for latest prices of this stock
+            # Create a view for latest prices of this stock (sanitize view name)
+            view_name = ticker.upper().replace('-', '_').replace('.', '_').replace('^', '_') + '_latest'
             self.cursor.execute(f'''
-                CREATE VIEW IF NOT EXISTS {ticker.upper()}_latest AS
+                CREATE VIEW IF NOT EXISTS {view_name} AS
                 SELECT 
                     sm.ticker,
                     sm.company_name,
@@ -172,7 +173,7 @@ class StockDataManager:
             ''')
             
             print(f"✓ Created table '{table_name}' for {ticker}")
-            print(f"✓ Created view '{ticker.upper()}_latest' for quick access")
+            print(f"✓ Created view '{view_name}' for quick access")
             
             return True
             

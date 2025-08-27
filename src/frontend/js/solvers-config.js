@@ -17,10 +17,10 @@ const solversConfig = [
     },
     {
         id: 3,
-        title: "Calculating cumulative returns",
-        description: "Calculate forward prices for various assets including stocks, commodities, and currencies. Supports continuous and discrete dividend yields, storage costs, and convenience yields.",
-        path: null,
-        status: "coming-soon"
+        title: "Cumulative Returns Calculator",
+        description: "Analyze and visualize overnight vs intraday cumulative returns from historical stock data. Compare performance patterns, calculate total and annualized returns, and identify best/worst performing periods.",
+        path: "Toolbox/cumulative-returns.html",
+        status: "available"
     }
 ];
 

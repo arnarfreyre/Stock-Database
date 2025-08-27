@@ -476,6 +476,89 @@ def get_stock_volatility(ticker):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/stock/<ticker>/cumulative-returns', methods=['GET'])
+def get_cumulative_returns(ticker):
+    """Calculate and return cumulative returns (overnight vs intraday) for a stock."""
+    try:
+        # Import the analysis function
+        from src.analysis.cumulative_returns import calculate_cumulative_returns
+        
+        # Get query parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Get database connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if stock exists
+        cursor.execute('SELECT company_name FROM stocks_master WHERE ticker = ?', (ticker.upper(),))
+        result = cursor.fetchone()
+        
+        if not result:
+            conn.close()
+            return jsonify({'success': False, 'error': f'Stock {ticker} not found in database'}), 404
+        
+        company_name = result['company_name']
+        
+        # Build query for price data
+        table_name = f"{ticker.upper().replace('-', '_').replace('.', '_')}_prices"
+        
+        query = f'''
+            SELECT date, open, close, high, low, volume
+            FROM {table_name}
+        '''
+        
+        params = []
+        conditions = []
+        
+        if start_date:
+            conditions.append('date >= ?')
+            params.append(start_date)
+        
+        if end_date:
+            conditions.append('date <= ?')
+            params.append(end_date)
+        
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
+        
+        query += ' ORDER BY date ASC'
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        conn.close()
+        
+        if not rows or len(rows) < 2:
+            return jsonify({
+                'success': False, 
+                'error': 'Insufficient data for calculation (need at least 2 trading days)'
+            }), 400
+        
+        # Convert rows to list of dicts for the analysis function
+        price_data = []
+        for row in rows:
+            price_data.append({
+                'date': row['date'],
+                'open': float(row['open']),
+                'close': float(row['close']),
+                'high': float(row['high']),
+                'low': float(row['low']),
+                'volume': float(row['volume']) if row['volume'] else 0
+            })
+        
+        # Calculate cumulative returns
+        results = calculate_cumulative_returns(price_data, ticker.upper())
+        
+        # Add company name to results
+        results['company_name'] = company_name
+        
+        return jsonify(results)
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""

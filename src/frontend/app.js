@@ -10,6 +10,300 @@ let currentStockData = null;
 let searchTimeout = null;
 let selectedSearchIndex = -1;
 let allDatasets = {}; // Store all datasets for toggling
+let originalCanvasDimensions = {}; // Store original canvas dimensions for fullscreen restoration
+let resizableChart = null; // ResizableChart instance for fullscreen mode
+
+// ResizableChart class for handling resize and drag functionality in fullscreen
+class ResizableChart {
+    constructor(containerId, chart) {
+        this.container = document.getElementById(containerId);
+        this.chart = chart; // Chart.js instance (priceChart or volumeChart)
+        this.wrapper = null;
+        this.isResizing = false;
+        this.isDragging = false;
+        this.currentHandle = null;
+        this.startX = 0;
+        this.startY = 0;
+        this.startWidth = 0;
+        this.startHeight = 0;
+        this.startLeft = 0;
+        this.startTop = 0;
+        
+        // Constraints
+        this.minWidth = 400;
+        this.minHeight = 300;
+        this.maxWidthPercent = 0.95;
+        this.maxHeightPercent = 0.95;
+        
+        // Initialize
+        this.init();
+    }
+    
+    init() {
+        // Create wrapper for the chart
+        this.createWrapper();
+        // Add resize handles
+        this.createResizeHandles();
+        // Set up event listeners
+        this.setupEventListeners();
+        // Position the wrapper initially (centered, 80% size)
+        this.setInitialPosition();
+    }
+    
+    createWrapper() {
+        const formulaBox = this.container.querySelector('.formula-box');
+        
+        // Create wrapper div
+        this.wrapper = document.createElement('div');
+        this.wrapper.className = 'resizable-chart-wrapper';
+        
+        // Move the formula box inside the wrapper
+        this.wrapper.appendChild(formulaBox);
+        
+        // Add wrapper to container
+        if (this.container.classList.contains('fullscreen') || 
+            this.container.matches(':fullscreen') || 
+            this.container.matches(':-webkit-full-screen')) {
+            this.container.appendChild(this.wrapper);
+        }
+    }
+    
+    createResizeHandles() {
+        // Define handle positions
+        const handles = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+        
+        handles.forEach(position => {
+            const handle = document.createElement('div');
+            handle.className = `resize-handle resize-handle-${position}`;
+            handle.dataset.position = position;
+            this.wrapper.appendChild(handle);
+        });
+    }
+    
+    setupEventListeners() {
+        // Resize handles
+        const handles = this.wrapper.querySelectorAll('.resize-handle');
+        handles.forEach(handle => {
+            handle.addEventListener('mousedown', this.startResize.bind(this));
+            handle.addEventListener('touchstart', this.startResize.bind(this), { passive: false });
+        });
+        
+        // Drag functionality (on the chart area)
+        const formulaBox = this.wrapper.querySelector('.formula-box');
+        formulaBox.addEventListener('mousedown', this.startDrag.bind(this));
+        formulaBox.addEventListener('touchstart', this.startDrag.bind(this), { passive: false });
+        
+        // Global mouse/touch events
+        document.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        document.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        document.addEventListener('touchmove', this.handleMouseMove.bind(this), { passive: false });
+        document.addEventListener('touchend', this.handleMouseUp.bind(this));
+    }
+    
+    setInitialPosition() {
+        const containerRect = this.container.getBoundingClientRect();
+        const sidebarWidth = 250; // Sidebar width in fullscreen
+        const availableWidth = containerRect.width - sidebarWidth;
+        
+        // Set initial size (80% of available space)
+        const initialWidth = availableWidth * 0.8;
+        const initialHeight = containerRect.height * 0.8;
+        
+        // Center the wrapper
+        const left = (availableWidth - initialWidth) / 2;
+        const top = (containerRect.height - initialHeight) / 2;
+        
+        this.wrapper.style.width = `${initialWidth}px`;
+        this.wrapper.style.height = `${initialHeight}px`;
+        this.wrapper.style.left = `${left}px`;
+        this.wrapper.style.top = `${top}px`;
+        
+        // Update chart size
+        this.updateChartSize();
+    }
+    
+    startResize(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.isResizing = true;
+        this.currentHandle = e.target.dataset.position;
+        
+        const touch = e.touches ? e.touches[0] : e;
+        this.startX = touch.clientX;
+        this.startY = touch.clientY;
+        
+        const rect = this.wrapper.getBoundingClientRect();
+        this.startWidth = rect.width;
+        this.startHeight = rect.height;
+        this.startLeft = parseInt(this.wrapper.style.left || 0);
+        this.startTop = parseInt(this.wrapper.style.top || 0);
+        
+        this.wrapper.classList.add('resizing');
+    }
+    
+    startDrag(e) {
+        // Don't start drag if clicking on a button, input, or resize handle
+        if (e.target.closest('button') || 
+            e.target.closest('input') || 
+            e.target.closest('.resize-handle') ||
+            e.target.closest('.exit-fullscreen-btn')) {
+            return;
+        }
+        
+        // Don't drag if it's a chart interaction (like tooltip)
+        if (e.target.tagName === 'CANVAS') {
+            // Allow chart interactions to work normally
+            return;
+        }
+        
+        e.preventDefault();
+        this.isDragging = true;
+        
+        const touch = e.touches ? e.touches[0] : e;
+        this.startX = touch.clientX;
+        this.startY = touch.clientY;
+        
+        this.startLeft = parseInt(this.wrapper.style.left || 0);
+        this.startTop = parseInt(this.wrapper.style.top || 0);
+        
+        this.wrapper.classList.add('dragging');
+    }
+    
+    handleMouseMove(e) {
+        if (!this.isResizing && !this.isDragging) return;
+        
+        const touch = e.touches ? e.touches[0] : e;
+        const deltaX = touch.clientX - this.startX;
+        const deltaY = touch.clientY - this.startY;
+        
+        if (this.isResizing) {
+            this.performResize(deltaX, deltaY);
+        } else if (this.isDragging) {
+            this.performDrag(deltaX, deltaY);
+        }
+    }
+    
+    performResize(deltaX, deltaY) {
+        const containerRect = this.container.getBoundingClientRect();
+        const sidebarWidth = 250;
+        const maxWidth = (containerRect.width - sidebarWidth) * this.maxWidthPercent;
+        const maxHeight = containerRect.height * this.maxHeightPercent;
+        
+        let newWidth = this.startWidth;
+        let newHeight = this.startHeight;
+        let newLeft = this.startLeft;
+        let newTop = this.startTop;
+        
+        // Handle resize based on handle position
+        const handle = this.currentHandle;
+        
+        if (handle.includes('e')) {
+            newWidth = Math.min(Math.max(this.startWidth + deltaX, this.minWidth), maxWidth);
+        }
+        if (handle.includes('w')) {
+            newWidth = Math.min(Math.max(this.startWidth - deltaX, this.minWidth), maxWidth);
+            newLeft = this.startLeft + (this.startWidth - newWidth);
+        }
+        if (handle.includes('s')) {
+            newHeight = Math.min(Math.max(this.startHeight + deltaY, this.minHeight), maxHeight);
+        }
+        if (handle.includes('n')) {
+            newHeight = Math.min(Math.max(this.startHeight - deltaY, this.minHeight), maxHeight);
+            newTop = this.startTop + (this.startHeight - newHeight);
+        }
+        
+        // Apply constraints to position
+        newLeft = Math.max(0, Math.min(newLeft, containerRect.width - sidebarWidth - newWidth));
+        newTop = Math.max(0, Math.min(newTop, containerRect.height - newHeight));
+        
+        // Apply new dimensions
+        this.wrapper.style.width = `${newWidth}px`;
+        this.wrapper.style.height = `${newHeight}px`;
+        this.wrapper.style.left = `${newLeft}px`;
+        this.wrapper.style.top = `${newTop}px`;
+        
+        // Update chart size with throttling
+        this.throttledUpdateChart();
+    }
+    
+    performDrag(deltaX, deltaY) {
+        const containerRect = this.container.getBoundingClientRect();
+        const sidebarWidth = 250;
+        const wrapperRect = this.wrapper.getBoundingClientRect();
+        
+        let newLeft = this.startLeft + deltaX;
+        let newTop = this.startTop + deltaY;
+        
+        // Apply constraints
+        newLeft = Math.max(0, Math.min(newLeft, containerRect.width - sidebarWidth - wrapperRect.width));
+        newTop = Math.max(0, Math.min(newTop, containerRect.height - wrapperRect.height));
+        
+        // Apply new position
+        this.wrapper.style.left = `${newLeft}px`;
+        this.wrapper.style.top = `${newTop}px`;
+    }
+    
+    handleMouseUp(e) {
+        if (this.isResizing) {
+            this.isResizing = false;
+            this.wrapper.classList.remove('resizing');
+            this.currentHandle = null;
+            
+            // Final chart update
+            this.updateChartSize();
+        }
+        
+        if (this.isDragging) {
+            this.isDragging = false;
+            this.wrapper.classList.remove('dragging');
+        }
+    }
+    
+    throttledUpdateChart() {
+        // Throttle chart updates for performance
+        if (!this.updateTimeout) {
+            this.updateTimeout = setTimeout(() => {
+                this.updateChartSize();
+                this.updateTimeout = null;
+            }, 50);
+        }
+    }
+    
+    updateChartSize() {
+        if (this.chart) {
+            // Use requestAnimationFrame for smooth updates
+            requestAnimationFrame(() => {
+                this.chart.resize();
+            });
+        }
+    }
+    
+    destroy() {
+        // Clean up event listeners
+        const handles = this.wrapper.querySelectorAll('.resize-handle');
+        handles.forEach(handle => {
+            handle.removeEventListener('mousedown', this.startResize.bind(this));
+            handle.removeEventListener('touchstart', this.startResize.bind(this));
+        });
+        
+        const formulaBox = this.wrapper.querySelector('.formula-box');
+        if (formulaBox) {
+            formulaBox.removeEventListener('mousedown', this.startDrag.bind(this));
+            formulaBox.removeEventListener('touchstart', this.startDrag.bind(this));
+        }
+        
+        // Move formula box back to container
+        if (formulaBox && this.container) {
+            this.container.appendChild(formulaBox);
+        }
+        
+        // Remove wrapper
+        if (this.wrapper && this.wrapper.parentNode) {
+            this.wrapper.remove();
+        }
+    }
+}
 
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -32,11 +326,30 @@ function toggleFullscreen(containerId) {
             container.msRequestFullscreen();
         }
         
+        // Store original canvas dimensions and set fullscreen dimensions
+        const canvas = container.querySelector('canvas');
+        if (canvas) {
+            originalCanvasDimensions[containerId] = {
+                height: canvas.style.height || '',
+                maxHeight: canvas.style.maxHeight || ''
+            };
+            // Set canvas to fill available height in fullscreen
+            canvas.style.height = 'calc(100vh - 6rem)';
+            canvas.style.maxHeight = 'calc(100vh - 6rem)';
+        }
+        
         // Set up fullscreen event listeners
         setupFullscreenListeners(containerId);
         
-        // Update charts to fit the new size
+        // Initialize ResizableChart after a short delay to ensure fullscreen is active
         setTimeout(() => {
+            // Determine which chart to make resizable
+            const chart = containerId === 'priceChartContainer' ? priceChart : volumeChart;
+            if (chart) {
+                resizableChart = new ResizableChart(containerId, chart);
+            }
+            
+            // Update charts to fit the new size
             if (priceChart) priceChart.resize();
             if (volumeChart) volumeChart.resize();
         }, 100);
@@ -128,6 +441,20 @@ function setupFullscreenListeners(containerId) {
             // Clean up event listeners when exiting fullscreen
             document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
             document.removeEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+            
+            // Destroy ResizableChart instance
+            if (resizableChart) {
+                resizableChart.destroy();
+                resizableChart = null;
+            }
+            
+            // Restore original canvas dimensions
+            const canvas = document.getElementById(containerId).querySelector('canvas');
+            if (canvas && originalCanvasDimensions[containerId]) {
+                canvas.style.height = originalCanvasDimensions[containerId].height || '300px';
+                canvas.style.maxHeight = originalCanvasDimensions[containerId].maxHeight || '';
+                delete originalCanvasDimensions[containerId];
+            }
             
             // Resize charts back to normal
             setTimeout(() => {

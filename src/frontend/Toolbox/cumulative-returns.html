@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cumulative Returns Calculator</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="main-header">
+            <h1>Cumulative Returns Calculator</h1>
+            <p>Compare overnight vs intraday cumulative returns from historical price data</p>
+        </div>
+
+        <!-- Back Button -->
+        <div style="margin-bottom: 2rem;">
+            <button onclick="window.location.href='../my-tools.html'" class="back-button">
+                ← Back to Toolbox
+            </button>
+        </div>
+
+        <!-- Stock Selection Section -->
+        <div class="section visible">
+            <h2>Stock Selection & Parameters</h2>
+            
+            <div class="calculator">
+                <div class="input-group" style="position: relative;">
+                    <label for="stockSearch">Search Stock (Ticker or Name)</label>
+                    <input type="text" id="stockSearch" placeholder="Enter ticker symbol or company name..." autocomplete="off">
+                    <input type="hidden" id="selectedTicker" value="">
+                    <div id="searchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 4px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    </div>
+                </div>
+
+                <!-- Date Range Presets -->
+                <div class="input-group">
+                    <label>Quick Date Ranges</label>
+                    <div class="date-presets" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                        <button type="button" class="btn-preset" onclick="setDateRange(3, 'months')">3 Months</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange(6, 'months')">6 Months</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange(1, 'year')">1 Year</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange(2, 'years')">2 Years</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange(5, 'years')">5 Years</button>
+                        <button type="button" class="btn-preset" onclick="setDateRange('all')">All</button>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label for="startDate">Start Date</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="input-group">
+                        <label for="endDate">End Date</label>
+                        <input type="date" id="endDate">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button id="calculateBtn" class="btn-primary">Calculate Returns</button>
+                    <button id="loadYahooDataBtn" class="btn-secondary" style="display: none;">Load Data from Yahoo Finance</button>
+                </div>
+                
+                <!-- No Data Message -->
+                <div id="noDataMessage" class="info-box" style="display: none; margin-top: 1.5rem;">
+                    <strong>ℹ️ No data available for this stock.</strong>
+                    <p style="margin: 0.5rem 0 0 0;">Click "Load Data from Yahoo Finance" to fetch historical data.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cumulative Returns Chart -->
+        <div id="returnsChartSection" class="section visible" style="display: none;">
+            <h2>Cumulative Returns Comparison</h2>
+            <div class="formula-box" style="background: white; padding: 2rem; min-height: 400px;">
+                <canvas id="returnsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Key Metrics Display -->
+        <div id="keyMetricsSection" class="section visible" style="display: none;">
+            <h2>Performance Metrics</h2>
+            <div class="greeks-grid">
+                <div class="greek-card">
+                    <h4>Total Overnight Return</h4>
+                    <p style="font-size: 1.5em; font-weight: bold;">
+                        <span id="totalOvernightReturn" style="color: #3498db;">--</span>%
+                    </p>
+                    <p style="font-size: 0.9em; color: #666; margin-top: 0.5rem;">
+                        Close → Open
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Total Intraday Return</h4>
+                    <p style="font-size: 1.5em; font-weight: bold;">
+                        <span id="totalIntradayReturn" style="color: #f39c12;">--</span>%
+                    </p>
+                    <p style="font-size: 0.9em; color: #666; margin-top: 0.5rem;">
+                        Open → Close
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Annualized Overnight</h4>
+                    <p style="font-size: 1.5em; font-weight: bold;">
+                        <span id="annualizedOvernight" style="color: #3498db;">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Annualized Intraday</h4>
+                    <p style="font-size: 1.5em; font-weight: bold;">
+                        <span id="annualizedIntraday" style="color: #f39c12;">--</span>%
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Statistics -->
+        <div id="detailedStatsSection" class="section visible" style="display: none;">
+            <h2>Detailed Statistics</h2>
+            <div class="greeks-grid">
+                <div class="greek-card">
+                    <h4>Overnight Win Rate</h4>
+                    <p style="font-size: 1.3em; font-weight: bold;">
+                        <span id="overnightWinRate" style="color: #27ae60;">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Intraday Win Rate</h4>
+                    <p style="font-size: 1.3em; font-weight: bold;">
+                        <span id="intradayWinRate" style="color: #27ae60;">--</span>%
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Best Overnight Day</h4>
+                    <p style="font-size: 1.3em; color: #27ae60; font-weight: bold;">
+                        <span id="bestOvernight">--</span>%
+                    </p>
+                    <p style="font-size: 0.85em; color: #666;">
+                        <span id="bestOvernightDate">--</span>
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Worst Overnight Day</h4>
+                    <p style="font-size: 1.3em; color: #e74c3c; font-weight: bold;">
+                        <span id="worstOvernight">--</span>%
+                    </p>
+                    <p style="font-size: 0.85em; color: #666;">
+                        <span id="worstOvernightDate">--</span>
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Best Intraday</h4>
+                    <p style="font-size: 1.3em; color: #27ae60; font-weight: bold;">
+                        <span id="bestIntraday">--</span>%
+                    </p>
+                    <p style="font-size: 0.85em; color: #666;">
+                        <span id="bestIntradayDate">--</span>
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Worst Intraday</h4>
+                    <p style="font-size: 1.3em; color: #e74c3c; font-weight: bold;">
+                        <span id="worstIntraday">--</span>%
+                    </p>
+                    <p style="font-size: 0.85em; color: #666;">
+                        <span id="worstIntradayDate">--</span>
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Trading Days</h4>
+                    <p style="font-size: 1.3em; color: #34495e; font-weight: bold;">
+                        <span id="tradingDays">--</span>
+                    </p>
+                </div>
+                <div class="greek-card">
+                    <h4>Date Range</h4>
+                    <p style="font-size: 0.9em; color: #34495e; font-weight: bold;">
+                        <span id="dateRangeDisplay">--</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Messages -->
+        <div id="errorMessage" class="warning-box" style="display: none;">
+            <strong>Error:</strong> <span id="errorText"></span>
+        </div>
+
+        <!-- Success Messages -->
+        <div id="successMessage" class="success-box" style="display: none;">
+            <strong>Success:</strong> <span id="successText"></span>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;">
+        <div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="text-align: center;">
+                <div style="width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #e74c3c; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                <p style="margin-top: 1rem; color: #666;">Calculating returns...</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .search-result-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+        
+        .search-result-item:hover,
+        .search-result-item.selected {
+            background-color: #f8f9fa;
+        }
+        
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .search-result-symbol {
+            font-weight: bold;
+            color: #e74c3c;
+            font-size: 1.1em;
+        }
+        
+        .search-result-name {
+            color: #333;
+            margin-left: 10px;
+        }
+        
+        .search-result-sector {
+            display: block;
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 3px;
+        }
+        
+        .search-no-results {
+            padding: 15px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .search-highlight {
+            background-color: #ffeb3b;
+            padding: 1px 2px;
+            border-radius: 2px;
+        }
+        
+        .btn-preset {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.9rem;
+            background-color: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: Georgia, serif;
+        }
+        
+        .btn-preset:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+        }
+        
+        .btn-preset:active {
+            transform: translateY(0);
+            background-color: #dee2e6;
+        }
+    </style>
+
+    <script>
+        // API configuration
+        const API_BASE_URL = 'http://localhost:5001/api';
+        
+        // Global variables
+        let searchTimeout = null;
+        let selectedSearchIndex = -1;
+        let returnsChart = null;
+        let priceData = null;
+        
+        // Initialize application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+        
+        async function initializeApp() {
+            // Set default dates (last 2 years to match the Python example)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setFullYear(startDate.getFullYear() - 2);
+            
+            document.getElementById('startDate').value = formatDate(startDate);
+            document.getElementById('endDate').value = formatDate(endDate);
+            
+            // Set up event listeners for search
+            setupSearchFunctionality();
+            
+            // Set up other event listeners
+            document.getElementById('calculateBtn').addEventListener('click', calculateReturns);
+            document.getElementById('loadYahooDataBtn').addEventListener('click', loadYahooData);
+        }
+        
+        function setupSearchFunctionality() {
+            const searchInput = document.getElementById('stockSearch');
+            const searchResults = document.getElementById('searchResults');
+            
+            // Search input event listener with debouncing
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                if (query.length < 1) {
+                    searchResults.style.display = 'none';
+                    searchResults.innerHTML = '';
+                    document.getElementById('selectedTicker').value = '';
+                    return;
+                }
+                
+                // Debounce search requests (300ms)
+                searchTimeout = setTimeout(() => searchTickers(query), 300);
+            });
+            
+            // Handle keyboard navigation in search results
+            searchInput.addEventListener('keydown', function(e) {
+                const results = document.querySelectorAll('.search-result-item');
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedSearchIndex = Math.min(selectedSearchIndex + 1, results.length - 1);
+                    updateSelectedResult(results);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedSearchIndex = Math.max(selectedSearchIndex - 1, -1);
+                    updateSelectedResult(results);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedSearchIndex >= 0 && results[selectedSearchIndex]) {
+                        selectStock(results[selectedSearchIndex].dataset.symbol, 
+                                  results[selectedSearchIndex].dataset.name);
+                    }
+                } else if (e.key === 'Escape') {
+                    searchResults.style.display = 'none';
+                    selectedSearchIndex = -1;
+                }
+            });
+            
+            // Click outside to close search results
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.style.display = 'none';
+                    selectedSearchIndex = -1;
+                }
+            });
+        }
+        
+        async function searchTickers(query) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/search/tickers?q=${encodeURIComponent(query)}&limit=20`);
+                const data = await response.json();
+                
+                const searchResults = document.getElementById('searchResults');
+                searchResults.innerHTML = '';
+                selectedSearchIndex = -1;
+                
+                if (data.success && data.results.length > 0) {
+                    data.results.forEach(stock => {
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'search-result-item';
+                        resultItem.dataset.symbol = stock.symbol;
+                        resultItem.dataset.name = stock.name;
+                        
+                        // Highlight matching text
+                        const highlightedSymbol = highlightText(stock.symbol, query);
+                        const highlightedName = highlightText(stock.name, query);
+                        
+                        resultItem.innerHTML = `
+                            <span class="search-result-symbol">${highlightedSymbol}</span>
+                            <span class="search-result-name">${highlightedName}</span>
+                            <span class="search-result-sector">${stock.sector}</span>
+                        `;
+                        
+                        resultItem.addEventListener('click', function() {
+                            selectStock(stock.symbol, stock.name);
+                        });
+                        
+                        searchResults.appendChild(resultItem);
+                    });
+                    
+                    searchResults.style.display = 'block';
+                } else if (data.results.length === 0) {
+                    searchResults.innerHTML = '<div class="search-no-results">No results found</div>';
+                    searchResults.style.display = 'block';
+                } else {
+                    searchResults.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                const searchResults = document.getElementById('searchResults');
+                searchResults.innerHTML = '<div class="search-no-results">Error searching stocks</div>';
+                searchResults.style.display = 'block';
+            }
+        }
+        
+        function highlightText(text, query) {
+            const regex = new RegExp(`(${query})`, 'gi');
+            return text.replace(regex, '<span class="search-highlight">$1</span>');
+        }
+        
+        function updateSelectedResult(results) {
+            results.forEach((result, index) => {
+                if (index === selectedSearchIndex) {
+                    result.classList.add('selected');
+                    result.scrollIntoView({ block: 'nearest' });
+                } else {
+                    result.classList.remove('selected');
+                }
+            });
+        }
+        
+        function selectStock(symbol, name) {
+            document.getElementById('stockSearch').value = `${symbol} - ${name}`;
+            document.getElementById('selectedTicker').value = symbol;
+            document.getElementById('searchResults').style.display = 'none';
+            selectedSearchIndex = -1;
+            
+            // Check if stock has data
+            checkStockData(symbol);
+        }
+        
+        async function checkStockData(ticker) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stock/${ticker}/check`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const calculateBtn = document.getElementById('calculateBtn');
+                    const loadYahooBtn = document.getElementById('loadYahooDataBtn');
+                    const noDataMsg = document.getElementById('noDataMessage');
+                    
+                    if (data.has_data) {
+                        // Stock has data - show calculate button
+                        calculateBtn.style.display = 'inline-block';
+                        loadYahooBtn.style.display = 'none';
+                        noDataMsg.style.display = 'none';
+                        
+                        // Update date range to match available data
+                        if (data.data_info && data.data_info.date_range_start && data.data_info.date_range_end) {
+                            document.getElementById('startDate').value = data.data_info.date_range_start;
+                            document.getElementById('endDate').value = data.data_info.date_range_end;
+                        }
+                    } else {
+                        // Stock doesn't have data - show load from Yahoo button
+                        calculateBtn.style.display = 'none';
+                        loadYahooBtn.style.display = 'inline-block';
+                        noDataMsg.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking stock data:', error);
+            }
+        }
+        
+        async function loadYahooData() {
+            const ticker = document.getElementById('selectedTicker').value;
+            
+            if (!ticker) {
+                showError('Please search and select a stock ticker');
+                return;
+            }
+            
+            try {
+                showLoading(true);
+                hideMessages();
+                
+                const response = await fetch(`${API_BASE_URL}/stock/${ticker}/load`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ period: '2y' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(data.message);
+                    
+                    // Update UI to show calculate button
+                    document.getElementById('calculateBtn').style.display = 'inline-block';
+                    document.getElementById('loadYahooDataBtn').style.display = 'none';
+                    document.getElementById('noDataMessage').style.display = 'none';
+                    
+                    // Check stock info to update date ranges
+                    await checkStockData(ticker);
+                    
+                    // Automatically calculate returns
+                    setTimeout(() => calculateReturns(), 500);
+                } else {
+                    showError(data.error || 'Failed to load stock data from Yahoo Finance');
+                }
+                
+            } catch (error) {
+                showError('Error loading stock data: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function calculateReturns() {
+            const ticker = document.getElementById('selectedTicker').value;
+            
+            if (!ticker) {
+                showError('Please select a stock ticker');
+                return;
+            }
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            try {
+                showLoading(true);
+                hideMessages();
+                hideResults();
+                
+                // Build query parameters
+                const params = new URLSearchParams();
+                if (startDate) params.append('start_date', startDate);
+                if (endDate) params.append('end_date', endDate);
+                
+                // Fetch cumulative returns from API
+                const response = await fetch(`${API_BASE_URL}/stock/${ticker}/cumulative-returns?${params}`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showError(data.error || 'Failed to calculate cumulative returns');
+                    return;
+                }
+                
+                // Display results
+                displayResults(data, ticker);
+                
+                showSuccess('Cumulative returns calculated successfully');
+                
+            } catch (error) {
+                showError('Error calculating returns: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function displayResults(results, ticker) {
+            // Display chart
+            displayChart(results, ticker);
+            
+            const stats = results.statistics;
+            
+            // Display key metrics
+            document.getElementById('totalOvernightReturn').textContent = stats.total_overnight_return.toFixed(2);
+            document.getElementById('totalOvernightReturn').style.color = stats.total_overnight_return >= 0 ? '#27ae60' : '#e74c3c';
+            
+            document.getElementById('totalIntradayReturn').textContent = stats.total_intraday_return.toFixed(2);
+            document.getElementById('totalIntradayReturn').style.color = stats.total_intraday_return >= 0 ? '#27ae60' : '#e74c3c';
+            
+            document.getElementById('annualizedOvernight').textContent = stats.annualized_overnight.toFixed(2);
+            document.getElementById('annualizedOvernight').style.color = stats.annualized_overnight >= 0 ? '#27ae60' : '#e74c3c';
+            
+            document.getElementById('annualizedIntraday').textContent = stats.annualized_intraday.toFixed(2);
+            document.getElementById('annualizedIntraday').style.color = stats.annualized_intraday >= 0 ? '#27ae60' : '#e74c3c';
+            
+            // Display detailed statistics
+            document.getElementById('overnightWinRate').textContent = stats.overnight_win_rate.toFixed(1);
+            document.getElementById('intradayWinRate').textContent = stats.intraday_win_rate.toFixed(1);
+            
+            document.getElementById('bestOvernight').textContent = stats.best_overnight.return.toFixed(2);
+            document.getElementById('bestOvernightDate').textContent = formatDisplayDate(stats.best_overnight.date);
+            
+            document.getElementById('worstOvernight').textContent = stats.worst_overnight.return.toFixed(2);
+            document.getElementById('worstOvernightDate').textContent = formatDisplayDate(stats.worst_overnight.date);
+            
+            document.getElementById('bestIntraday').textContent = stats.best_intraday.return.toFixed(2);
+            document.getElementById('bestIntradayDate').textContent = formatDisplayDate(stats.best_intraday.date);
+            
+            document.getElementById('worstIntraday').textContent = stats.worst_intraday.return.toFixed(2);
+            document.getElementById('worstIntradayDate').textContent = formatDisplayDate(stats.worst_intraday.date);
+            
+            document.getElementById('tradingDays').textContent = stats.trading_days;
+            document.getElementById('dateRangeDisplay').textContent = 
+                `${formatDisplayDate(stats.start_date)} to ${formatDisplayDate(stats.end_date)}`;
+            
+            // Show all sections
+            document.getElementById('returnsChartSection').style.display = 'block';
+            document.getElementById('keyMetricsSection').style.display = 'block';
+            document.getElementById('detailedStatsSection').style.display = 'block';
+        }
+        
+        function displayChart(results, ticker) {
+            const ctx = document.getElementById('returnsChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (returnsChart) {
+                returnsChart.destroy();
+            }
+            
+            // Prepare data for chart
+            const chartData = {
+                labels: results.dates,
+                datasets: [
+                    {
+                        label: 'Overnight (Close → Open)',
+                        data: results.cumulative_overnight.map(v => (v - 1) * 100), // Convert to percentage
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Intraday (Open → Close)',
+                        data: results.cumulative_intraday.map(v => (v - 1) * 100), // Convert to percentage
+                        borderColor: '#f39c12',
+                        backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        tension: 0.1
+                    }
+                ]
+            };
+            
+            // Create chart
+            returnsChart = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${ticker} - Cumulative Returns: Overnight vs Intraday`,
+                            font: {
+                                size: 16,
+                                family: 'Georgia, serif'
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    return formatDisplayDate(context[0].label);
+                                },
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            },
+                            ticks: {
+                                autoSkip: true,
+                                maxTicksLimit: 10,
+                                callback: function(value, index, values) {
+                                    return formatDisplayDate(this.getLabelForValue(value));
+                                },
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Cumulative Return (%)',
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(0) + '%';
+                                },
+                                font: {
+                                    family: 'Georgia, serif'
+                                }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    if (context.tick.value === 0) {
+                                        return '#666';
+                                    }
+                                    return '#e0e0e0';
+                                },
+                                lineWidth: function(context) {
+                                    if (context.tick.value === 0) {
+                                        return 2;
+                                    }
+                                    return 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function hideResults() {
+            document.getElementById('returnsChartSection').style.display = 'none';
+            document.getElementById('keyMetricsSection').style.display = 'none';
+            document.getElementById('detailedStatsSection').style.display = 'none';
+        }
+        
+        // Date range preset function
+        function setDateRange(value, unit) {
+            const endDate = new Date();
+            const startDate = new Date();
+            
+            if (value === 'all') {
+                // Set start date to 10 years ago for "ALL" option
+                startDate.setFullYear(startDate.getFullYear() - 10);
+            } else {
+                // Calculate the start date based on the period
+                if (unit === 'months') {
+                    startDate.setMonth(startDate.getMonth() - value);
+                } else if (unit === 'year') {
+                    startDate.setFullYear(startDate.getFullYear() - value);
+                } else if (unit === 'years') {
+                    startDate.setFullYear(startDate.getFullYear() - value);
+                }
+            }
+            
+            // Update the date inputs
+            document.getElementById('startDate').value = formatDate(startDate);
+            document.getElementById('endDate').value = formatDate(endDate);
+        }
+        
+        // Utility functions
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        function formatDisplayDate(dateString) {
+            const date = new Date(dateString);
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+        }
+        
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').style.display = 'block';
+            setTimeout(hideMessages, 5000);
+        }
+        
+        function showSuccess(message) {
+            document.getElementById('successText').textContent = message;
+            document.getElementById('successMessage').style.display = 'block';
+            setTimeout(hideMessages, 5000);
+        }
+        
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
