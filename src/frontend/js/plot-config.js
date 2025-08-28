@@ -9,6 +9,8 @@ const plotConfigs = {
         id: 'stock-prices',
         title: 'Stock Prices',
         fullscreenEnabled: true,
+        resizable: true,  // Enable chart resizing in fullscreen
+        chartVariable: 'priceChart',  // Global variable name for the chart instance
         chartType: 'line',
         options: {
             movingAverages: {
@@ -50,6 +52,8 @@ const plotConfigs = {
         id: 'volume',
         title: 'Trading Volume', 
         fullscreenEnabled: true,
+        resizable: true,  // Enable chart resizing in fullscreen
+        chartVariable: 'volumeChart',  // Global variable name for the chart instance
         chartType: 'bar',
         options: {
             movingAverages: {
@@ -92,6 +96,8 @@ const plotConfigs = {
         id: 'cumulative-returns',
         title: 'Cumulative Returns',
         fullscreenEnabled: true,
+        resizable: false,  // Disable chart resizing in fullscreen
+        chartVariable: 'returnsChart',  // Global variable name for the chart instance
         chartType: 'line',
         options: {
             movingAverages: {
@@ -135,6 +141,8 @@ const plotConfigs = {
         id: 'volatility',
         title: 'Volatility Analysis',
         fullscreenEnabled: true,
+        resizable: false,  // Disable chart resizing in fullscreen
+        chartVariable: 'termStructureChart',  // Global variable name for the chart instance
         chartType: 'line',
         options: {
             movingAverages: {
@@ -397,17 +405,51 @@ const PlotConfig = {
     },
 
     /**
-     * Trigger chart update (to be implemented by each page)
+     * Trigger chart update with style consistency preservation
      * @private
      */
     _triggerChartUpdate() {
         // Look for common update functions in global scope
         if (typeof loadStockData === 'function') {
             loadStockData(); // For index.html
+            
+            // Ensure style consistency after reload
+            setTimeout(() => {
+                if (typeof ensureChartStyleConsistency === 'function') {
+                    ensureChartStyleConsistency();
+                }
+            }, 100);
         } else if (typeof calculateReturns === 'function') {
             calculateReturns(); // For cumulative-returns.html
         } else if (typeof updateChart === 'function') {
             updateChart(); // Generic fallback
+        }
+    },
+
+    /**
+     * Trigger reactive chart option updates with consistent styling
+     * @param {string} controlId - Control ID that was changed
+     * @param {boolean} checked - New state of the control
+     */
+    triggerReactiveUpdate(controlId, checked) {
+        // Map control IDs to dataset types for reactive updates
+        const controlToDatasetMap = {
+            'stockPrice': 'price',
+            'ma5': 'ma5', 
+            'ma20': 'ma20',
+            'ma40': 'ma40'
+        };
+        
+        const datasetType = controlToDatasetMap[controlId];
+        if (datasetType && typeof reactiveToggleDataset === 'function') {
+            reactiveToggleDataset(datasetType);
+            
+            // Ensure style consistency after reactive update
+            setTimeout(() => {
+                if (typeof ensureChartStyleConsistency === 'function') {
+                    ensureChartStyleConsistency();
+                }
+            }, 50);
         }
     },
 

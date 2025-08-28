@@ -390,8 +390,10 @@ class FullscreenManager {
         // Create and populate sidebar
         this.createSidebar(container, plotId, containerId, options);
         
-        // Initialize resizable chart
-        this.activeInstance = new ResizableChart(containerId, chart, plotConfig);
+        // Initialize resizable chart only if enabled in configuration
+        if (plotConfig.resizable === true) {
+            this.activeInstance = new ResizableChart(containerId, chart, plotConfig);
+        }
         
         // Set up fullscreen exit listener
         this.setupExitListener(containerId);
@@ -455,7 +457,7 @@ class FullscreenManager {
         // Sync with existing form inputs if they exist
         this.syncWithMainInputs(sidebar, containerId);
 
-        // Set up control listeners
+        // Set up control listeners with reactive updates
         const enabledOptions = PlotConfig.getEnabledOptions(plotId);
         
         Object.keys(enabledOptions).forEach(optionKey => {
@@ -470,6 +472,9 @@ class FullscreenManager {
                             const mainCheckbox = document.getElementById(control.id);
                             if (mainCheckbox) {
                                 mainCheckbox.checked = checkbox.checked;
+                                
+                                // Trigger reactive update if function exists
+                                this.triggerReactiveUpdate(control.id, checkbox.checked);
                             }
                             
                             // Call custom callback if provided
@@ -481,6 +486,67 @@ class FullscreenManager {
                 });
             }
         });
+    }
+
+    /**
+     * Trigger reactive chart update from fullscreen sidebar with consistent styling
+     * @param {string} controlId - Control ID (e.g., 'stockPrice', 'ma5', etc.)
+     * @param {boolean} checked - New checkbox state
+     */
+    triggerReactiveUpdate(controlId, checked) {
+        // Map control IDs to dataset types
+        const controlToDatasetMap = {
+            'stockPrice': 'price',
+            'ma5': 'ma5',
+            'ma20': 'ma20',
+            'ma40': 'ma40'
+        };
+        
+        const datasetType = controlToDatasetMap[controlId];
+        if (datasetType && typeof reactiveToggleDataset === 'function') {
+            // Trigger the reactive update with style consistency
+            reactiveToggleDataset(datasetType);
+        } else if (datasetType && typeof priceChart !== 'undefined' && priceChart) {
+            // Fallback: Direct chart update with style preservation
+            this.updateChartDatasetDirectly(datasetType, checked);
+        }
+    }
+
+    /**
+     * Direct chart update with style preservation (fallback method)
+     * @param {string} datasetType - Dataset type
+     * @param {boolean} visible - Whether dataset should be visible
+     */
+    updateChartDatasetDirectly(datasetType, visible) {
+        if (!priceChart) return;
+        
+        // Use global CHART_STYLES if available
+        const styles = window.CHART_STYLES || {};
+        
+        const datasetLabels = {
+            'price': 'Close Price',
+            'ma5': '5-Day MA',
+            'ma20': '20-Day MA',
+            'ma40': '40-Day MA'
+        };
+        
+        const label = datasetLabels[datasetType];
+        const datasetIndex = priceChart.data.datasets.findIndex(ds => ds.label === label);
+        
+        if (datasetIndex !== -1) {
+            const dataset = priceChart.data.datasets[datasetIndex];
+            
+            // Restore consistent styling
+            if (styles[datasetType]) {
+                Object.assign(dataset, styles[datasetType]);
+            }
+            
+            // Set visibility
+            priceChart.getDatasetMeta(datasetIndex).hidden = !visible;
+            
+            // Update without animation to preserve styling
+            priceChart.update('none');
+        }
     }
 
     /**

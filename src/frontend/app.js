@@ -10,6 +10,41 @@ let currentStockData = null;
 let searchTimeout = null;
 let selectedSearchIndex = -1;
 let allDatasets = {}; // Store all datasets for toggling
+let chartUpdateTimeout = null; // Debouncing for chart updates
+let isChartReady = false; // Flag to track if chart is ready for updates
+
+// Centralized chart style configuration
+const CHART_STYLES = {
+    price: {
+        borderColor: '#e74c3c',
+        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        tension: 0.1
+    },
+    ma5: {
+        borderColor: '#3498db',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: false,
+        borderDash: [5, 5]
+    },
+    ma20: {
+        borderColor: '#27ae60',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: false,
+        borderDash: [5, 5]
+    },
+    ma40: {
+        borderColor: '#9b59b6',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: false,
+        borderDash: [5, 5]
+    }
+};
 
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -33,11 +68,11 @@ async function initializeApp() {
     document.getElementById('loadYahooDataBtn').addEventListener('click', loadYahooData);
     document.getElementById('updateDataBtn').addEventListener('click', updateStockData);
     
-    // Chart line toggle listeners - they toggle visibility without reloading data
-    document.getElementById('stockPrice').addEventListener('change', () => toggleDataset('price'));
-    document.getElementById('ma5').addEventListener('change', () => toggleDataset('ma5'));
-    document.getElementById('ma20').addEventListener('change', () => toggleDataset('ma20'));
-    document.getElementById('ma40').addEventListener('change', () => toggleDataset('ma40'));
+    // Chart line toggle listeners - reactive updates with debouncing
+    document.getElementById('stockPrice').addEventListener('change', () => reactiveToggleDataset('price'));
+    document.getElementById('ma5').addEventListener('change', () => reactiveToggleDataset('ma5'));
+    document.getElementById('ma20').addEventListener('change', () => reactiveToggleDataset('ma20'));
+    document.getElementById('ma40').addEventListener('change', () => reactiveToggleDataset('ma40'));
 }
 
 function setupSearchFunctionality() {
@@ -222,6 +257,9 @@ async function loadStockData() {
         showLoading(true);
         hideMessages();
         
+        // Reset chart ready flag
+        isChartReady = false;
+        
         // Fetch stock info
         const infoResponse = await fetch(`${API_BASE_URL}/stock/${ticker}/info`);
         const infoData = await infoResponse.json();
@@ -257,6 +295,12 @@ async function loadStockData() {
         // Display statistics
         displayStatistics(priceData.data);
         
+        // Mark chart as ready for reactive updates
+        isChartReady = true;
+        
+        // Ensure chart style consistency after initial load
+        ensureChartStyleConsistency();
+        
         // Show sections
         document.getElementById('stockInfo').style.display = 'block';
         document.getElementById('chartSection').style.display = 'block';
@@ -267,6 +311,8 @@ async function loadStockData() {
         
     } catch (error) {
         showError('Error loading stock data: ' + error.message);
+        // Reset chart ready flag on error
+        isChartReady = false;
     } finally {
         showLoading(false);
     }
@@ -374,49 +420,33 @@ function displayPriceChart(data) {
     // Destroy existing chart if it exists
     if (priceChart) {
         priceChart.destroy();
+        priceChart = null;
     }
     
-    // Prepare all datasets - load them all but control visibility
+    // Prepare all datasets using centralized style configuration
     allDatasets = {
         price: {
             label: 'Close Price',
             data: data.prices,
-            borderColor: '#e74c3c',
-            backgroundColor: 'rgba(231, 76, 60, 0.1)',
-            borderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 5,
-            tension: 0.1,
+            ...CHART_STYLES.price,
             hidden: !document.getElementById('stockPrice').checked  // Respect checkbox state
         },
         ma5: {
             label: '5-Day MA',
             data: data.ma_5,
-            borderColor: '#3498db',
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-            borderDash: [5, 5],
+            ...CHART_STYLES.ma5,
             hidden: !document.getElementById('ma5').checked  // Respect checkbox state
         },
         ma20: {
             label: '20-Day MA',
             data: data.ma_20,
-            borderColor: '#27ae60',
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-            borderDash: [5, 5],
+            ...CHART_STYLES.ma20,
             hidden: !document.getElementById('ma20').checked  // Respect checkbox state
         },
         ma40: {
             label: '40-Day MA',
             data: data.ma_40,
-            borderColor: '#9b59b6',
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-            borderDash: [5, 5],
+            ...CHART_STYLES.ma40,
             hidden: !document.getElementById('ma40').checked  // Respect checkbox state
         }
     };
@@ -651,16 +681,259 @@ function toggleDataset(datasetType) {
     const datasetIndex = priceChart.data.datasets.findIndex(ds => ds.label === label);
     
     if (datasetIndex !== -1) {
+        // Get the dataset and ensure consistent styling
+        const dataset = priceChart.data.datasets[datasetIndex];
+        
+        // Restore original styling to prevent Chart.js from modifying it
+        Object.assign(dataset, CHART_STYLES[datasetType]);
+        
         // Toggle the visibility
         const isHidden = priceChart.getDatasetMeta(datasetIndex).hidden;
         priceChart.getDatasetMeta(datasetIndex).hidden = !isHidden;
         
-        // Update the chart to show/hide the dataset
+        // Update the chart with consistent styling
         priceChart.update('none'); // 'none' animation mode for instant update
     }
 }
 
-// Date range preset function
+/**
+ * Reactive toggle function with debouncing and visual feedback
+ * Updates chart immediately when checkbox state changes
+ * @param {string} datasetType - Type of dataset to toggle (price, ma5, ma20, ma40)
+ */
+function reactiveToggleDataset(datasetType) {
+    // Don't react if chart isn't ready yet
+    if (!isChartReady || !priceChart) return;
+    
+    // Clear any pending chart updates to debounce rapid toggles
+    if (chartUpdateTimeout) {
+        clearTimeout(chartUpdateTimeout);
+    }
+    
+    // Show visual feedback immediately
+    showChartUpdateFeedback();
+    
+    // Debounce chart updates (100ms delay)
+    chartUpdateTimeout = setTimeout(() => {
+        performReactiveToggle(datasetType);
+        hideChartUpdateFeedback();
+        chartUpdateTimeout = null;
+    }, 100);
+}
+
+/**
+ * Perform the actual dataset toggle with consistent styling
+ * @param {string} datasetType - Type of dataset to toggle
+ */
+function performReactiveToggle(datasetType) {
+    if (!priceChart) return;
+    
+    // Find the dataset index based on label
+    const datasetLabels = {
+        'price': 'Close Price',
+        'ma5': '5-Day MA',
+        'ma20': '20-Day MA',
+        'ma40': '40-Day MA'
+    };
+    
+    const label = datasetLabels[datasetType];
+    const datasetIndex = priceChart.data.datasets.findIndex(ds => ds.label === label);
+    
+    if (datasetIndex !== -1) {
+        // Get current checkbox state
+        const checkbox = document.getElementById(getCheckboxId(datasetType));
+        if (!checkbox) return;
+        
+        // Get the dataset and ensure consistent styling
+        const dataset = priceChart.data.datasets[datasetIndex];
+        
+        // Restore original styling to prevent Chart.js from modifying it
+        Object.assign(dataset, CHART_STYLES[datasetType]);
+        
+        // Toggle the visibility based on checkbox state
+        priceChart.getDatasetMeta(datasetIndex).hidden = !checkbox.checked;
+        
+        // Update chart with 'none' animation mode to prevent style changes
+        priceChart.update('none');
+        
+        // Sync with fullscreen sidebar checkboxes if they exist
+        syncFullscreenCheckboxes(datasetType, checkbox.checked);
+    }
+}
+
+/**
+ * Get checkbox ID for dataset type
+ * @param {string} datasetType - Type of dataset
+ * @returns {string} Checkbox element ID
+ */
+function getCheckboxId(datasetType) {
+    const checkboxIds = {
+        'price': 'stockPrice',
+        'ma5': 'ma5',
+        'ma20': 'ma20',
+        'ma40': 'ma40'
+    };
+    return checkboxIds[datasetType];
+}
+
+/**
+ * Sync fullscreen sidebar checkboxes with main form checkboxes
+ * @param {string} datasetType - Type of dataset
+ * @param {boolean} checked - Checkbox state
+ */
+function syncFullscreenCheckboxes(datasetType, checked) {
+    // Look for fullscreen sidebar checkboxes
+    const fsCheckboxSelectors = [
+        `#fs-${getCheckboxId(datasetType)}-priceChartContainer`,
+        `#fs-${getCheckboxId(datasetType)}-price`,
+        `#fs-${getCheckboxId(datasetType)}-stock-prices`
+    ];
+    
+    fsCheckboxSelectors.forEach(selector => {
+        const fsCheckbox = document.querySelector(selector);
+        if (fsCheckbox && fsCheckbox.checked !== checked) {
+            fsCheckbox.checked = checked;
+        }
+    });
+}
+
+/**
+ * Show visual feedback during chart updates
+ */
+function showChartUpdateFeedback() {
+    // Add a subtle overlay to indicate chart is updating
+    const chartContainer = document.getElementById('priceChartContainer');
+    if (!chartContainer) return;
+    
+    let overlay = chartContainer.querySelector('.chart-update-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'chart-update-overlay';
+        overlay.innerHTML = '<div class="update-spinner"></div>';
+        overlay.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        `;
+        
+        // Add spinner styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .update-spinner {
+                width: 24px;
+                height: 24px;
+                border: 2px solid #f3f3f3;
+                border-top: 2px solid #e74c3c;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+            }
+            .chart-update-overlay {
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            }
+            .chart-update-overlay.visible {
+                opacity: 1;
+            }
+        `;
+        
+        if (!document.querySelector('#chart-update-styles')) {
+            style.id = 'chart-update-styles';
+            document.head.appendChild(style);
+        }
+        
+        chartContainer.appendChild(overlay);
+    }
+    
+    // Show overlay
+    requestAnimationFrame(() => {
+        overlay.classList.add('visible');
+    });
+}
+
+/**
+ * Hide visual feedback after chart updates
+ */
+function hideChartUpdateFeedback() {
+    const chartContainer = document.getElementById('priceChartContainer');
+    if (!chartContainer) return;
+    
+    const overlay = chartContainer.querySelector('.chart-update-overlay');
+    if (overlay) {
+        overlay.classList.remove('visible');
+        // Remove overlay after transition
+        setTimeout(() => {
+            if (overlay.parentNode && !overlay.classList.contains('visible')) {
+                overlay.remove();
+            }
+        }, 200);
+    }
+}
+
+/**
+ * Ensure chart style consistency across all datasets
+ * Call this after any operation that might affect chart styling
+ */
+function ensureChartStyleConsistency() {
+    if (!priceChart || !priceChart.data || !priceChart.data.datasets) return;
+    
+    const datasetTypeMap = {
+        'Close Price': 'price',
+        '5-Day MA': 'ma5',
+        '20-Day MA': 'ma20',
+        '40-Day MA': 'ma40'
+    };
+    
+    let stylesApplied = 0;
+    
+    priceChart.data.datasets.forEach(dataset => {
+        const datasetType = datasetTypeMap[dataset.label];
+        if (datasetType && CHART_STYLES[datasetType]) {
+            // Preserve data and visibility state
+            const originalData = dataset.data;
+            const originalHidden = dataset.hidden;
+            const originalLabel = dataset.label;
+            
+            // Check if style correction is needed (prevents Chart.js from adding dots/circles)
+            const needsCorrection = dataset.pointRadius !== CHART_STYLES[datasetType].pointRadius ||
+                                  dataset.borderWidth !== CHART_STYLES[datasetType].borderWidth ||
+                                  dataset.borderColor !== CHART_STYLES[datasetType].borderColor;
+            
+            if (needsCorrection) {
+                // Apply consistent styling
+                Object.assign(dataset, CHART_STYLES[datasetType]);
+                stylesApplied++;
+                
+                // Restore critical properties
+                dataset.data = originalData;
+                dataset.hidden = originalHidden;
+                dataset.label = originalLabel;
+            }
+        }
+    });
+    
+    // Only update if styles were actually corrected
+    if (stylesApplied > 0) {
+        // Update chart without animation to preserve styling
+        priceChart.update('none');
+    }
+}
+
+// Make CHART_STYLES globally available
+if (typeof window !== 'undefined') {
+    window.CHART_STYLES = CHART_STYLES;
+    window.ensureChartStyleConsistency = ensureChartStyleConsistency;
+}
+
+// Date range preset function with consistent chart styling
 function setDateRange(value, unit) {
     const endDate = new Date();
     const startDate = new Date();
@@ -682,6 +955,11 @@ function setDateRange(value, unit) {
     // Update the date inputs
     document.getElementById('startDate').value = formatDate(startDate);
     document.getElementById('endDate').value = formatDate(endDate);
+    
+    // If chart exists, preserve style consistency after date change
+    if (priceChart) {
+        ensureChartStyleConsistency();
+    }
 }
 
 // Utility functions
