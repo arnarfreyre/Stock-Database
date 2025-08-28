@@ -260,19 +260,27 @@
         }
         
         .chart-container:fullscreen {
-            background: #1a1a1a;
+            background: #ffffff !important;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 0;
+            transition: none !important;
         }
         
         .chart-container:-webkit-full-screen {
-            background: #1a1a1a;
+            background: #ffffff !important;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 0;
+            transition: none !important;
+        }
+        
+        /* Maintain clean backgrounds in fullscreen */
+        .chart-container:fullscreen *,
+        .chart-container:-webkit-full-screen * {
+            transition: none !important;
         }
         
         .chart-container:fullscreen .formula-box {
@@ -282,6 +290,8 @@
             border-radius: 0;
             box-shadow: none;
             padding: 3rem !important;
+            background: #ffffff !important;
+            transition: none !important;
         }
         
         .chart-container:-webkit-full-screen .formula-box {
@@ -291,14 +301,20 @@
             border-radius: 0;
             box-shadow: none;
             padding: 3rem !important;
+            background: #ffffff !important;
+            transition: none !important;
         }
         
         .chart-container:fullscreen canvas {
             max-height: calc(100vh - 6rem);
+            background: transparent;
+            transition: none !important;
         }
         
         .chart-container:-webkit-full-screen canvas {
             max-height: calc(100vh - 6rem);
+            background: transparent;
+            transition: none !important;
         }
         
         /* Fullscreen Button */

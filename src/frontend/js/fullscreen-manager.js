@@ -52,11 +52,16 @@ class ResizableChart {
             return;
         }
         
+        // Store original parent and next sibling for restoration
+        this.originalParent = formulaBox.parentNode;
+        this.originalNextSibling = formulaBox.nextSibling;
+        this.originalFormulaBox = formulaBox;
+        
         // Create wrapper div
         this.wrapper = document.createElement('div');
         this.wrapper.className = 'resizable-chart-wrapper';
         
-        // Move the formula box inside the wrapper
+        // Move the original formula box to preserve Chart.js instance and data
         this.wrapper.appendChild(formulaBox);
         
         // Add wrapper to container
@@ -64,6 +69,13 @@ class ResizableChart {
             this.container.matches(':fullscreen') || 
             this.container.matches(':-webkit-full-screen')) {
             this.container.appendChild(this.wrapper);
+        }
+        
+        // Force chart resize after moving
+        if (this.chart) {
+            setTimeout(() => {
+                this.chart.resize();
+            }, 100);
         }
     }
     
@@ -286,18 +298,34 @@ class ResizableChart {
             if (formulaBox) {
                 formulaBox.removeEventListener('mousedown', this.startDrag.bind(this));
                 formulaBox.removeEventListener('touchstart', this.startDrag.bind(this));
-                
-                // Move formula box back to container
-                if (this.container) {
-                    this.container.appendChild(formulaBox);
-                }
-            }
-            
-            // Remove wrapper
-            if (this.wrapper.parentNode) {
-                this.wrapper.remove();
             }
         }
+        
+        // Move formula box back to its original location
+        if (this.originalFormulaBox && this.originalParent) {
+            if (this.originalNextSibling) {
+                this.originalParent.insertBefore(this.originalFormulaBox, this.originalNextSibling);
+            } else {
+                this.originalParent.appendChild(this.originalFormulaBox);
+            }
+            
+            // Force chart resize after moving back
+            if (this.chart) {
+                setTimeout(() => {
+                    this.chart.resize();
+                }, 100);
+            }
+        }
+        
+        // Remove wrapper after moving formula box back
+        if (this.wrapper && this.wrapper.parentNode) {
+            this.wrapper.remove();
+        }
+        
+        // Clear references
+        this.originalFormulaBox = null;
+        this.originalParent = null;
+        this.originalNextSibling = null;
     }
 }
 
@@ -357,21 +385,30 @@ class FullscreenManager {
             container.msRequestFullscreen();
         }
 
-        // Store original canvas dimensions
+        // Ensure white background in fullscreen
+        container.style.background = '#ffffff';
+        const formulaBox = container.querySelector('.formula-box');
+        if (formulaBox) {
+            formulaBox.style.background = '#ffffff';
+        }
+
+        // Store original canvas dimensions - DO NOT modify the canvas here
         const canvas = container.querySelector('canvas');
         if (canvas) {
             this.originalCanvasDimensions[containerId] = {
-                height: canvas.style.height || '',
-                maxHeight: canvas.style.maxHeight || ''
+                height: canvas.style.height || '300px',
+                maxHeight: canvas.style.maxHeight || '',
+                width: canvas.style.width || '',
+                maxWidth: canvas.style.maxWidth || ''
             };
-            canvas.style.height = 'calc(100vh - 6rem)';
-            canvas.style.maxHeight = 'calc(100vh - 6rem)';
+            // DO NOT modify canvas dimensions here - let CSS handle it
+            // This was causing the original chart to change size
         }
 
-        // Set up fullscreen-specific functionality
+        // Set up fullscreen-specific functionality with reduced delay
         setTimeout(() => {
             this.setupFullscreenUI(containerId, plotId, chart, options);
-        }, 100);
+        }, 50);
     }
 
     /**
@@ -398,9 +435,16 @@ class FullscreenManager {
         // Set up fullscreen exit listener
         this.setupExitListener(containerId);
         
-        // Resize chart
+        // Configure Chart.js for dark theme in fullscreen
+        this.configureChartForFullscreen(chart);
+        
+        // Resize chart and preserve dark backgrounds
         if (chart) {
-            setTimeout(() => chart.resize(), 50);
+            setTimeout(() => {
+                chart.resize();
+                // Ensure dark backgrounds are maintained after resize
+                this.preserveFullscreenWhiteBackground(container);
+            }, 50);
         }
     }
 
@@ -468,6 +512,12 @@ class FullscreenManager {
                     const checkbox = sidebar.querySelector(`#fs-${control.id}-${containerId}`);
                     if (checkbox) {
                         checkbox.addEventListener('change', () => {
+                            // Preserve dark backgrounds before and after option changes
+                            const container = sidebar.closest('.chart-container');
+                            if (container) {
+                                this.preserveFullscreenWhiteBackground(container);
+                            }
+                            
                             // Sync with main checkbox if it exists
                             const mainCheckbox = document.getElementById(control.id);
                             if (mainCheckbox) {
@@ -476,6 +526,17 @@ class FullscreenManager {
                                 // Trigger reactive update if function exists
                                 this.triggerReactiveUpdate(control.id, checkbox.checked);
                             }
+                            
+                            // Preserve dark backgrounds after option changes
+                            setTimeout(() => {
+                                if (container) {
+                                    this.preserveFullscreenWhiteBackground(container);
+                                }
+                                // Call global preservation function if available
+                                if (typeof window.preserveFullscreenDarkBackground === 'function') {
+                                    window.preserveFullscreenDarkBackground();
+                                }
+                            }, 50);
                             
                             // Call custom callback if provided
                             if (options.onControlChange) {
@@ -613,6 +674,61 @@ class FullscreenManager {
     }
 
     /**
+     * Configure Chart.js for fullscreen with white canvas
+     * @param {Object} chart - Chart.js instance
+     */
+    configureChartForFullscreen(chart) {
+        if (!chart || !chart.canvas) return;
+        
+        // Keep canvas white - remove any dark background overrides
+        chart.canvas.style.backgroundColor = '';
+        
+        // Add update hook to maintain white canvas
+        const originalUpdate = chart.update.bind(chart);
+        chart.update = function(animationMode) {
+            const result = originalUpdate(animationMode);
+            // Ensure canvas stays white after any chart update
+            setTimeout(() => {
+                if (chart.canvas) {
+                    chart.canvas.style.backgroundColor = '';
+                }
+            }, 10);
+            return result;
+        };
+    }
+
+    /**
+     * Preserve fullscreen dark theme on container but keep canvas white
+     * @param {HTMLElement} container - Container element
+     */
+    preserveFullscreenWhiteBackground(container) {
+        if (!container) return;
+        
+        // Check if container is in fullscreen
+        const isFullscreen = container.matches(':fullscreen') || 
+                           container.matches(':-webkit-full-screen');
+        
+        if (isFullscreen) {
+            // Apply white background to container
+            container.style.background = '#ffffff';
+            
+            const formulaBox = container.querySelector('.formula-box');
+            if (formulaBox) {
+                formulaBox.style.background = '#ffffff';
+                formulaBox.style.transition = 'none';
+            }
+            
+            // Keep canvas transparent
+            const canvas = container.querySelector('canvas');
+            if (canvas) {
+                canvas.style.background = '';
+                canvas.style.backgroundColor = '';
+                canvas.style.transition = 'none';
+            }
+        }
+    }
+
+    /**
      * Clean up fullscreen resources
      * @param {string} containerId - Container element ID
      */
@@ -623,13 +739,26 @@ class FullscreenManager {
             this.activeInstance = null;
         }
 
-        // Restore canvas dimensions
+        // Restore original canvas dimensions and backgrounds
         const container = document.getElementById(containerId);
         if (container) {
+            // Restore container background to original
+            container.style.background = '';
+            
+            // Restore formula box background
+            const formulaBox = container.querySelector('.formula-box');
+            if (formulaBox) {
+                formulaBox.style.background = '';
+                formulaBox.style.transition = '';
+            }
+            
             const canvas = container.querySelector('canvas');
             if (canvas && this.originalCanvasDimensions[containerId]) {
-                canvas.style.height = this.originalCanvasDimensions[containerId].height || '300px';
-                canvas.style.maxHeight = this.originalCanvasDimensions[containerId].maxHeight || '';
+                // Restore ALL original dimensions to prevent size changes
+                canvas.style.height = this.originalCanvasDimensions[containerId].height;
+                canvas.style.maxHeight = this.originalCanvasDimensions[containerId].maxHeight;
+                canvas.style.width = this.originalCanvasDimensions[containerId].width;
+                canvas.style.maxWidth = this.originalCanvasDimensions[containerId].maxWidth;
                 delete this.originalCanvasDimensions[containerId];
             }
 

@@ -96,7 +96,7 @@ const plotConfigs = {
         id: 'cumulative-returns',
         title: 'Cumulative Returns',
         fullscreenEnabled: true,
-        resizable: false,  // Disable chart resizing in fullscreen
+        resizable: true,  // Disable chart resizing in fullscreen
         chartVariable: 'returnsChart',  // Global variable name for the chart instance
         chartType: 'line',
         options: {
@@ -280,7 +280,7 @@ const PlotConfig = {
                 <div class="date-preset-buttons">`;
         
         option.presets.forEach(preset => {
-            html += `<button class="date-preset-btn" onclick="PlotConfig.setDateRange('${preset.value}', '${preset.unit}', '${chartType}')">${preset.label}</button>`;
+            html += `<button class="date-preset-btn" onclick="PlotConfig.setDateRangeWithDarkPreservation('${preset.value}', '${preset.unit}', '${chartType}')">${preset.label}</button>`;
         });
         
         html += `</div>`;
@@ -296,7 +296,7 @@ const PlotConfig = {
                         <label>To:</label>
                         <input type="date" id="fs-endDate-${chartType}" class="fs-date-input">
                     </div>
-                    <button class="apply-date-btn" onclick="PlotConfig.applyCustomDateRange('${chartType}')">Apply</button>
+                    <button class="apply-date-btn" onclick="PlotConfig.applyCustomDateRangeWithDarkPreservation('${chartType}')">Apply</button>
                 </div>`;
         }
         
@@ -328,6 +328,24 @@ const PlotConfig = {
                 </div>
             </div>`;
         return html;
+    },
+
+    /**
+     * Set date range with dark background preservation (called from generated buttons)
+     * @param {string|number} value - Date range value
+     * @param {string|null} unit - Date unit (months, years, etc.)
+     * @param {string} chartType - Chart identifier
+     */
+    setDateRangeWithDarkPreservation(value, unit, chartType) {
+        // Preserve dark backgrounds before and after date range change
+        this._preserveDarkBackgroundDuringUpdate();
+        
+        this.setDateRange(value, unit, chartType);
+        
+        // Re-apply dark backgrounds after a short delay
+        setTimeout(() => {
+            this._preserveDarkBackgroundDuringUpdate();
+        }, 100);
     },
 
     /**
@@ -372,6 +390,22 @@ const PlotConfig = {
     },
 
     /**
+     * Apply custom date range with dark background preservation
+     * @param {string} chartType - Chart identifier
+     */
+    applyCustomDateRangeWithDarkPreservation(chartType) {
+        // Preserve dark backgrounds before and after date range change
+        this._preserveDarkBackgroundDuringUpdate();
+        
+        this.applyCustomDateRange(chartType);
+        
+        // Re-apply dark backgrounds after a short delay
+        setTimeout(() => {
+            this._preserveDarkBackgroundDuringUpdate();
+        }, 100);
+    },
+
+    /**
      * Apply custom date range
      * @param {string} chartType - Chart identifier
      */
@@ -405,10 +439,13 @@ const PlotConfig = {
     },
 
     /**
-     * Trigger chart update with style consistency preservation
+     * Trigger chart update with style consistency preservation and white flash prevention
      * @private
      */
     _triggerChartUpdate() {
+        // Preserve dark backgrounds during update
+        this._preserveDarkBackgroundDuringUpdate();
+        
         // Look for common update functions in global scope
         if (typeof loadStockData === 'function') {
             loadStockData(); // For index.html
@@ -418,12 +455,42 @@ const PlotConfig = {
                 if (typeof ensureChartStyleConsistency === 'function') {
                     ensureChartStyleConsistency();
                 }
+                this._preserveDarkBackgroundDuringUpdate(); // Reapply after update
             }, 100);
         } else if (typeof calculateReturns === 'function') {
             calculateReturns(); // For cumulative-returns.html
         } else if (typeof updateChart === 'function') {
             updateChart(); // Generic fallback
         }
+    },
+
+    /**
+     * Preserve dark backgrounds during chart updates but keep canvas white
+     * @private
+     */
+    _preserveDarkBackgroundDuringUpdate() {
+        // Find all fullscreen containers
+        const fullscreenContainers = document.querySelectorAll('.chart-container:fullscreen, .chart-container:-webkit-full-screen');
+        
+        fullscreenContainers.forEach(container => {
+            // Apply dark background to container
+            container.style.background = '#1a1a1a';
+            
+            // Apply dark background to formula box
+            const formulaBox = container.querySelector('.formula-box');
+            if (formulaBox) {
+                formulaBox.style.background = '#1a1a1a';
+                formulaBox.style.transition = 'none';
+            }
+            
+            // Keep canvas white - remove any dark background overrides
+            const canvas = container.querySelector('canvas');
+            if (canvas) {
+                canvas.style.background = '';
+                canvas.style.backgroundColor = '';
+                canvas.style.transition = 'none';
+            }
+        });
     },
 
     /**

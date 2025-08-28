@@ -6,19 +6,27 @@
 }
 
 .chart-container:fullscreen {
-    background: #1a1a1a;
+    background: #ffffff !important;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
+    transition: none !important;
 }
 
 .chart-container:-webkit-full-screen {
-    background: #1a1a1a;
+    background: #ffffff !important;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
+    transition: none !important;
+}
+
+/* Ensure child elements maintain background during fullscreen, except canvas */
+.chart-container:fullscreen *:not(canvas),
+.chart-container:-webkit-full-screen *:not(canvas) {
+    background-color: transparent;
 }
 
 .chart-container:fullscreen .formula-box {
@@ -28,6 +36,8 @@
     border-radius: 0;
     box-shadow: none;
     padding: 3rem !important;
+    background: #ffffff !important;
+    transition: none !important;
 }
 
 .chart-container:-webkit-full-screen .formula-box {
@@ -37,14 +47,20 @@
     border-radius: 0;
     box-shadow: none;
     padding: 3rem !important;
+    background: #ffffff !important;
+    transition: none !important;
 }
 
 .chart-container:fullscreen canvas {
     max-height: calc(100vh - 6rem);
+    background: transparent;
+    transition: none !important;
 }
 
 .chart-container:-webkit-full-screen canvas {
     max-height: calc(100vh - 6rem);
+    background: transparent;
+    transition: none !important;
 }
 
 /* Fullscreen Button */
@@ -244,6 +260,23 @@
     cursor: pointer;
     transition: all 0.2s ease;
     font-family: Georgia, serif;
+}
+
+/* Prevent white flash on date range button interactions in fullscreen */
+.chart-container:fullscreen .date-preset-btn,
+.chart-container:-webkit-full-screen .date-preset-btn {
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.chart-container:fullscreen .date-preset-btn:hover,
+.chart-container:-webkit-full-screen .date-preset-btn:hover {
+    background: rgba(231, 76, 60, 0.2) !important;
+    border-color: rgba(231, 76, 60, 0.4) !important;
+}
+
+.chart-container:fullscreen .date-preset-btn:active,
+.chart-container:-webkit-full-screen .date-preset-btn:active {
+    background: rgba(231, 76, 60, 0.15) !important;
 }
 
 .date-preset-btn:hover {

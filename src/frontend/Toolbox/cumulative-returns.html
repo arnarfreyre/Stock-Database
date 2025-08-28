@@ -672,6 +672,19 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: {
+                        onComplete: function() {
+                            // Preserve dark backgrounds in fullscreen after chart rendering
+                            const fullscreenContainers = document.querySelectorAll('.chart-container:fullscreen, .chart-container:-webkit-full-screen');
+                            fullscreenContainers.forEach(container => {
+                                container.style.background = '#1a1a1a';
+                                const formulaBox = container.querySelector('.formula-box');
+                                const canvas = container.querySelector('canvas');
+                                if (formulaBox) formulaBox.style.background = '#1a1a1a';
+                                if (canvas) canvas.style.background = '#1a1a1a';
+                            });
+                        }
+                    },
                     interaction: {
                         mode: 'index',
                         intersect: false,

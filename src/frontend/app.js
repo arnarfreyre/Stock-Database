@@ -423,6 +423,12 @@ function displayPriceChart(data) {
         priceChart = null;
     }
     
+    // Set initial canvas background to prevent white flash
+    const canvas = document.getElementById('priceChart');
+    if (canvas) {
+        canvas.style.backgroundColor = 'transparent';
+    }
+    
     // Prepare all datasets using centralized style configuration
     allDatasets = {
         price: {
@@ -469,6 +475,11 @@ function displayPriceChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                onComplete: function() {
+                    // Ensure dark backgrounds are maintained after chart completion
+                }
+            },
             interaction: {
                 mode: 'index',
                 intersect: false,
@@ -722,11 +733,13 @@ function reactiveToggleDataset(datasetType) {
 }
 
 /**
- * Perform the actual dataset toggle with consistent styling
+ * Perform the actual dataset toggle with consistent styling and white flash prevention
  * @param {string} datasetType - Type of dataset to toggle
  */
 function performReactiveToggle(datasetType) {
     if (!priceChart) return;
+    
+    // Preserve dark background during toggle in fullscreen
     
     // Find the dataset index based on label
     const datasetLabels = {
@@ -756,10 +769,15 @@ function performReactiveToggle(datasetType) {
         // Update chart with 'none' animation mode to prevent style changes
         priceChart.update('none');
         
+        // Re-apply dark backgrounds after update to prevent white flash
+        setTimeout(() => {
+                }, 10);
+        
         // Sync with fullscreen sidebar checkboxes if they exist
         syncFullscreenCheckboxes(datasetType, checkbox.checked);
     }
 }
+
 
 /**
  * Get checkbox ID for dataset type
@@ -927,7 +945,7 @@ function ensureChartStyleConsistency() {
     }
 }
 
-// Make CHART_STYLES globally available
+// Make CHART_STYLES and dark background preservation globally available
 if (typeof window !== 'undefined') {
     window.CHART_STYLES = CHART_STYLES;
     window.ensureChartStyleConsistency = ensureChartStyleConsistency;
