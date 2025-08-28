@@ -1,0 +1,347 @@
+/* Fullscreen Styles for Chart Components */
+
+/* Chart container base styles */
+.chart-container {
+    position: relative;
+}
+
+.chart-container:fullscreen {
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.chart-container:-webkit-full-screen {
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.chart-container:fullscreen .formula-box {
+    width: calc(100% - 250px);
+    height: 100vh;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 3rem !important;
+}
+
+.chart-container:-webkit-full-screen .formula-box {
+    width: calc(100% - 250px);
+    height: 100vh;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 3rem !important;
+}
+
+.chart-container:fullscreen canvas {
+    max-height: calc(100vh - 6rem);
+}
+
+.chart-container:-webkit-full-screen canvas {
+    max-height: calc(100vh - 6rem);
+}
+
+/* Fullscreen Button */
+.fullscreen-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.formula-box:hover .fullscreen-btn {
+    opacity: 1;
+}
+
+.fullscreen-btn:hover {
+    background: #fff;
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.fullscreen-btn svg {
+    color: #666;
+}
+
+/* Exit Fullscreen Button */
+.exit-fullscreen-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 10px;
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.exit-fullscreen-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.exit-fullscreen-btn svg {
+    color: #fff;
+}
+
+/* Fullscreen Sidebar */
+.fullscreen-sidebar {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 250px;
+    height: 100vh;
+    background: linear-gradient(to bottom, rgba(20, 20, 20, 0.95), rgba(30, 30, 30, 0.95));
+    backdrop-filter: blur(10px);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    overflow-y: auto;
+    z-index: 50;
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.chart-container:fullscreen .fullscreen-sidebar {
+    display: block !important;
+}
+
+.chart-container:-webkit-full-screen .fullscreen-sidebar {
+    display: block !important;
+}
+
+.sidebar-content {
+    padding: 2rem 1.5rem;
+    padding-top: 4rem;
+}
+
+.sidebar-content h3 {
+    color: #fff;
+    font-size: 1.3rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e74c3c;
+    font-weight: 300;
+    letter-spacing: 1px;
+}
+
+/* Sidebar Sections */
+.sidebar-section {
+    margin-bottom: 2rem;
+}
+
+.sidebar-section-title {
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+}
+
+.sidebar-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sidebar-option {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.sidebar-option:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateX(-3px);
+}
+
+.sidebar-option input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 0.75rem;
+    cursor: pointer;
+    accent-color: #e74c3c;
+}
+
+.sidebar-option span {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.9);
+    user-select: none;
+}
+
+.sidebar-option input:checked + span {
+    color: #fff;
+    font-weight: 500;
+}
+
+/* Custom scrollbar for sidebar */
+.fullscreen-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.fullscreen-sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.fullscreen-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.fullscreen-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Hide fullscreen button in fullscreen mode */
+.chart-container:fullscreen .fullscreen-btn,
+.chart-container:-webkit-full-screen .fullscreen-btn {
+    display: none;
+}
+
+/* Date Range Controls in Sidebar */
+.date-preset-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.date-preset-btn {
+    padding: 0.4rem 0.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: Georgia, serif;
+}
+
+.date-preset-btn:hover {
+    background: rgba(231, 76, 60, 0.2);
+    border-color: rgba(231, 76, 60, 0.4);
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.date-preset-btn:active {
+    transform: scale(0.98);
+}
+
+.date-preset-btn.active {
+    background: rgba(231, 76, 60, 0.3);
+    border-color: #e74c3c;
+    color: #fff;
+}
+
+/* Manual Date Selection */
+.manual-date-selection {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.date-input-group {
+    margin-bottom: 0.75rem;
+}
+
+.date-input-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.fs-date-input {
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9rem;
+    font-family: Georgia, serif;
+    transition: all 0.2s ease;
+}
+
+.fs-date-input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(231, 76, 60, 0.6);
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
+}
+
+/* Custom date input styling for webkit browsers */
+.fs-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.6;
+    cursor: pointer;
+}
+
+.fs-date-input::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+.apply-date-btn {
+    width: 100%;
+    padding: 0.6rem;
+    margin-top: 0.5rem;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: Georgia, serif;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.apply-date-btn:hover {
+    background: linear-gradient(135deg, #c0392b, #a02920);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.apply-date-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(231, 76, 60, 0.2);
+}
+
+.apply-date-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}

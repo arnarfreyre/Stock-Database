@@ -501,9 +501,17 @@ def get_cumulative_returns(ticker):
         
         company_name = result['company_name']
         
-        # Build query for price data
-        table_name = f"{ticker.upper().replace('-', '_').replace('.', '_')}_prices"
+        # Get the table name from stocks_master (handles indices with ^ properly)
+        cursor.execute('SELECT table_name FROM stocks_master WHERE ticker = ?', (ticker.upper(),))
+        table_result = cursor.fetchone()
         
+        if not table_result:
+            conn.close()
+            return jsonify({'success': False, 'error': f'Table not found for stock {ticker}'}), 404
+        
+        table_name = table_result['table_name']
+        
+        # Build query for price data
         query = f'''
             SELECT date, open, close, high, low, volume
             FROM {table_name}

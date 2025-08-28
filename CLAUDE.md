@@ -75,7 +75,10 @@ All endpoints are served from `http://localhost:5001/api/`
 - `GET /api/stock/<ticker>/check` - Check if stock exists and has data
 - `GET /api/stock/<ticker>/info` - Get stock metadata
 - `GET /api/stock/<ticker>/prices` - Get historical prices with moving averages
+- `GET /api/stock/<ticker>/volatility` - Calculate volatility metrics
+- `GET /api/stock/<ticker>/cumulative-returns` - Calculate overnight vs intraday returns
 - `POST /api/stock/<ticker>/load` - Load new stock or update existing data
+- `POST /api/stock/<ticker>/update` - Update existing stock data
 - `GET /api/health` - API health check
 
 ## Database Schema
@@ -99,10 +102,11 @@ Each stock gets a table named `{TICKER}_prices` with:
 Stock tables follow the pattern `{TICKER}_prices` where special characters in tickers are replaced:
 - Hyphens (`-`) → underscores (`_`)  
 - Periods (`.`) → underscores (`_`)
-- Example: `BRK-B` becomes `BRK_B_prices`
+- Carets (`^`) → underscores (`_`) for indices
+- Example: `BRK-B` becomes `BRK_B_prices`, `^GSPC` becomes `_GSPC_prices`
 
 ### Moving Average Calculation
-The 40-day MA is calculated on-the-fly in the API (`app.py`) using `calculate_moving_average()` from `src/utils/calculations.py`, while 5, 20, and 50-day MAs are pre-calculated during data import.
+The 40-day MA is calculated on-the-fly in the API (`app.py`) using `calculate_moving_average()` from `src/utils/calculations.py`, while 5, 20, 50, and 200-day MAs are pre-calculated during data import.
 
 ### Error Handling Patterns
 - Database operations use try-except with rollback on failure
@@ -115,14 +119,208 @@ The frontend (in `src/frontend/`) uses vanilla JavaScript with Chart.js for visu
 - `index.html` - Main application interface
 - `app.js` - JavaScript application logic and API integration
 - `styles.css` - Application styling
+- `my-tools.html` - Main toolbox page displaying available financial calculators
 
 The frontend dynamically loads from CDN:
 - Chart.js for interactive price charts
 - Bootstrap for responsive design
 
+## Toolbox Architecture
+
+### Overview
+The toolbox is a collection of financial engineering calculators and analysis tools accessible through the web interface. Each tool follows a consistent architecture pattern where **computation-heavy operations are handled by Python scripts** while the **toolbox frontend displays results interactively**.
+
+### Directory Structure
+```
+src/
+├── frontend/
+│   ├── Toolbox/                    # HTML interfaces for individual tools
+│   │   ├── volatility-calculator.html
+│   │   └── cumulative-returns.html
+│   ├── js/
+│   │   ├── solvers-config.js      # Tool registry and configuration
+│   │   └── render-utils.js        # Dynamic card rendering utilities
+│   └── my-tools.html              # Main toolbox page
+├── analysis/                       # Python calculation modules
+│   ├── volatility_calculator.py   # Volatility metrics computation
+│   └── cumulative_returns.py      # Returns analysis computation
+└── backend/
+    └── app.py                      # Flask API endpoints connecting frontend to Python
+```
+
+### Architecture Pattern
+Each tool follows this three-layer architecture:
+
+1. **Python Calculation Layer** (`src/analysis/`)
+   - Contains the heavy computational logic
+   - Implements statistical calculations, financial models, and data analysis
+   - Returns structured data (dictionaries/JSON) with calculated metrics
+   - Example: `volatility_calculator.py` calculates annualized volatility, VaR, percentiles
+
+2. **API Endpoint Layer** (`src/backend/app.py`)
+   - Flask routes that expose Python calculations as REST endpoints
+   - Handles data retrieval from database
+   - Calls Python calculation modules with appropriate parameters
+   - Returns JSON responses to frontend
+   - Example: `/api/stock/<ticker>/volatility` endpoint uses `calculate_volatility_from_prices()`
+
+3. **Frontend Display Layer** (`src/frontend/Toolbox/`)
+   - HTML/JavaScript interface for user interaction
+   - Makes AJAX calls to API endpoints
+   - Renders results using charts, tables, and formatted displays
+   - Handles user input validation and UI state management
+   - Example: `volatility-calculator.html` displays volatility metrics and term structure charts
+
+### Tool Registration System
+
+Tools are registered in `src/frontend/js/solvers-config.js`:
+```javascript
+const solversConfig = [
+    {
+        id: 1,
+        title: "Historic Volatility Calculator",
+        description: "Calculate annualized historic volatility...",
+        path: "Toolbox/volatility-calculator.html",  // Path to tool HTML
+        status: "available"                           // or "coming-soon"
+    },
+    // Additional tools...
+];
+```
+
+The main toolbox page (`my-tools.html`) uses `render-utils.js` to:
+- Dynamically render tool cards from the configuration
+- Handle navigation to individual tools
+- Display availability status
+
+### Existing Tools
+
+#### 1. Historic Volatility Calculator
+- **Frontend**: `Toolbox/volatility-calculator.html`
+- **Backend**: `/api/stock/<ticker>/volatility` endpoint
+- **Python**: `src/analysis/volatility_calculator.py`
+- **Functionality**: 
+  - Calculates daily, weekly, monthly, and annualized volatility
+  - Computes return statistics (mean, min, max, skewness, kurtosis)
+  - Generates volatility percentiles and term structure
+  - Provides robust volatility measures (winsorized, MAD)
+
+#### 2. Cumulative Returns Calculator  
+- **Frontend**: `Toolbox/cumulative-returns.html`
+- **Backend**: `/api/stock/<ticker>/cumulative-returns` endpoint
+- **Python**: `src/analysis/cumulative_returns.py`
+- **Functionality**:
+  - Analyzes overnight vs intraday returns
+  - Calculates cumulative performance metrics
+  - Identifies best/worst performing periods
+  - Compares return patterns
+
+### Creating New Tools - Step-by-Step Guide
+
+#### Step 1: Create Python Calculation Module
+Create a new file in `src/analysis/` (e.g., `option_pricer.py`):
+``` python
+def calculate_option_price(spot, strike, rate, volatility, time):
+    """
+    Core calculation logic for option pricing.
+    Returns dictionary with calculated metrics.
+    """
+    # Implement Black-Scholes or other model
+    return {
+        'call_price': calculated_call,
+        'put_price': calculated_put,
+        'greeks': {...}
+    }
+```
+
+#### Step 2: Add API Endpoint
+Add route in `src/backend/app.py`:
+``` python
+from src.analysis.option_pricer import calculate_option_price
+
+@app.route('/api/option/price', methods=['POST'])
+def price_option():
+    data = request.json
+    result = calculate_option_price(
+        spot=data['spot'],
+        strike=data['strike'],
+        # ... other parameters
+    )
+    return jsonify({'success': True, 'result': result})
+```
+
+#### Step 3: Create HTML Frontend
+Create `src/frontend/Toolbox/option-pricer.html`:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Option Pricer</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <!-- Input form -->
+    <!-- Results display -->
+    <script>
+        async function calculateOption() {
+            const response = await fetch('/api/option/price', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({...})
+            });
+            // Display results
+        }
+    </script>
+</body>
+</html>
+```
+
+#### Step 4: Register in Configuration
+Add to `src/frontend/js/solvers-config.js`:
+``` javascript
+{
+    id: 3,
+    title: "Black-Scholes Option Pricer",
+    description: "Calculate option prices and Greeks",
+    path: "Toolbox/option-pricer.html",
+    status: "available"
+}
+```
+
+### Best Practices for Tool Development
+
+1. **Separation of Concerns**
+   - Keep ALL heavy computation in Python modules
+   - Use frontend ONLY for display and user interaction
+   - API endpoints should be thin wrappers around Python functions
+
+2. **Error Handling**
+   - Python modules should validate inputs and return error dictionaries
+   - API endpoints should catch exceptions and return appropriate HTTP codes
+   - Frontend should display user-friendly error messages
+
+3. **Data Flow**
+   - Frontend collects user input → API validates and fetches data → Python calculates → API returns JSON → Frontend displays
+
+4. **Testing**
+   - Unit test Python calculation modules independently
+   - Test API endpoints with various input scenarios
+   - Verify frontend handles all response types (success, error, edge cases)
+
+5. **Performance**
+   - Pre-calculate expensive metrics during data import when possible
+   - Cache frequently requested calculations
+   - Use pagination for large result sets
+
 ## Testing
 
-Currently no test suite exists. When implementing tests, consider:
+Currently no formal test suite exists. When implementing tests, consider:
 - Unit tests for calculation functions in `src/utils/calculations.py`
 - Integration tests for database operations in `StockDataManager`
 - API endpoint tests for Flask routes
+
+## Analysis Modules
+
+The application includes analysis modules in `src/analysis/`:
+- `volatility_calculator.py` - Volatility metrics calculation
+- `cumulative_returns.py` - Overnight vs intraday return analysis
+- `stock_analyzer.py` - Framework for additional analysis tools

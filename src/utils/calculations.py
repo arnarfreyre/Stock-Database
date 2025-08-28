@@ -5,6 +5,33 @@ Calculation utilities for technical indicators and analysis
 from typing import List, Optional
 import numpy as np
 
+def sanitize_ticker_for_table_name(ticker: str) -> str:
+    """
+    Sanitize a ticker symbol to create a valid SQL table name.
+    
+    Handles special characters in tickers:
+    - ^ (caret) for indices like ^GSPC → IDX_GSPC
+    - - (hyphen) like BRK-B → BRK_B
+    - . (period) like BRK.A → BRK_A
+    
+    Args:
+        ticker: The ticker symbol to sanitize
+        
+    Returns:
+        Sanitized ticker string safe for SQL table names
+    """
+    # Convert to uppercase first
+    sanitized = ticker.upper()
+    
+    # Replace ^ with IDX_ prefix for index tickers
+    if sanitized.startswith('^'):
+        sanitized = 'IDX_' + sanitized[1:]
+    
+    # Replace other special characters with underscore
+    sanitized = sanitized.replace('-', '_').replace('.', '_')
+    
+    return sanitized
+
 def calculate_moving_average(prices: List[float], window: int) -> List[Optional[float]]:
     """
     Calculate moving average for given window size.
