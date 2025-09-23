@@ -12,4 +12,4 @@ numpy>=1.24.0
 
 # Web framework and API
 flask>=2.3.0
-flask-cors>=4.0.0
+flask-cors>=6.0.0
