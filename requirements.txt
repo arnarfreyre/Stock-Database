@@ -13,3 +13,5 @@ numpy>=1.24.0
 # Web framework and API
 flask>=2.3.0
 flask-cors>=6.0.0
+matplotlib~=3.10.5
+scipy~=1.16.1
