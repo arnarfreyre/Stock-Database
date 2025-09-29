@@ -5,7 +5,8 @@ j number 2 = strike
 j number 3 = lastPrice
 j number 1 = lastTradeDate
 j number 10 = impliedVolatility
-
+j number 4 = bid
+j number 5 = ask
 
 
 
