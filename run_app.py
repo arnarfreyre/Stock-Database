@@ -25,6 +25,7 @@ def main():
     print("🚀 Starting Stock Market Application...")
     print(f"📊 Database: {DATABASE_PATH}")
     print(f"🌐 Server: http://{API_HOST}:{API_PORT}")
+    print(f"💻 Frontend: http://localhost:63342/Aflei%C3%B0ur-Working/src/frontend/index.html?_ijt=lg2luqvcffiuh43r8d2c4sldch")
     print("\nPress Ctrl+C to stop the server")
     
     # Run the Flask app
