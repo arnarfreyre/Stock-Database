@@ -2,4 +2,5 @@
 Yfinance artifact
 https://claude.ai/public/artifacts/00378a72-d459-4092-a41b-ac2f151e7d3d
 
-
+Pandas / Api endpoint artifact
+https://claude.ai/public/artifacts/1bf6248c-cba9-47f6-99dc-db0977e38469

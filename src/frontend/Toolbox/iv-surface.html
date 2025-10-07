@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Implied Volatility Surface</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="../js/fullscreen-styles.css">
+    <script src="https://cdn.plot.ly/plotly-3.1.1.min.js" charset="utf-8"></script>
+    <style>
+        .surface-container {
+            display: flex;
+            gap: 2rem;
+            margin-top: 2rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+            scroll-behavior: smooth;
+        }
+
+        /* Custom scrollbar styling */
+        .surface-container::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .surface-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .surface-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .surface-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        @media (max-width: 1400px) {
+            .surface-container {
+                flex-wrap: nowrap;
+                min-width: 100%;
+            }
+
+            .surface-plot {
+                min-width: 600px;
+                flex-shrink: 0;
+            }
+        }
+
+        .surface-plot {
+            flex: 1;
+            min-height: 350px;
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .fullscreen-3d-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .surface-plot:hover .fullscreen-3d-btn {
+            opacity: 1;
+        }
+
+        .fullscreen-3d-btn:hover {
+            background: #fff;
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .surface-controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+
+        .warning-message {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+
+        .surface-stats {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2c5282;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+
+        /* Fullscreen styles for 3D plots */
+        .surface-plot:fullscreen {
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .surface-plot:fullscreen h3 {
+            margin-bottom: 2rem;
+        }
+
+        .surface-plot:fullscreen .fullscreen-3d-btn {
+            display: none;
+        }
+
+        .surface-plot:fullscreen .loading-overlay {
+            position: fixed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="main-header">
+            <h1>Implied Volatility Surface</h1>
+            <p>Visualize 3D implied volatility surfaces for calls and puts</p>
+        </div>
+
+        <!-- Back Button -->
+        <div class="info-message-box">
+            <button onclick="window.location.href='../my-tools.html'" class="back-button">
+                ← Back to Toolbox
+            </button>
+        </div>
+
+        <!-- Stock Selection Section -->
+        <div class="section visible">
+            <h2>Stock Selection</h2>
+
+            <div class="calculator">
+                <div class="input-group search-dropdown-container">
+                    <label for="stockSearch">Search Stock (Ticker or Name)</label>
+                    <input type="text" id="stockSearch" placeholder="Enter ticker symbol (e.g., AAPL, SPY)..." autocomplete="off">
+                    <input type="hidden" id="selectedTicker" value="">
+                    <div id="searchResults" class="search-results-dropdown"></div>
+                </div>
+
+                <!-- Expiry Range Selection -->
+                <div class="input-group">
+                    <label>Expiration Range</label>
+                    <div class="input-row">
+                        <select id="expiryRange">
+                            <option value="5">First 5 expirations</option>
+                            <option value="10" selected>First 10 expirations</option>
+                            <option value="15">First 15 expirations</option>
+                            <option value="20">First 20 expirations</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="button-group-flex">
+                    <button id="calculateBtn" class="btn-primary" style="display: none;">Generate IV Surface</button>
+                    <button id="loadYahooDataBtn" class="btn-secondary" style="display: none;">Load from Yahoo Finance</button>
+                </div>
+
+                <div id="noDataMessage" class="warning-message" style="display: none;">
+                    Stock data not found in database. Click "Load from Yahoo Finance" to fetch the data.
+                </div>
+
+                <!-- Error/Warning Messages -->
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+                <div id="warningMessage" class="warning-message" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Market Parameters Display -->
+        <div id="marketParamsSection" class="section visible" style="display: none;">
+            <h2>Market Parameters</h2>
+            <div class="surface-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="spotPrice">--</div>
+                    <div class="stat-label">Spot Price</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="riskFreeRate">--</div>
+                    <div class="stat-label">Risk-Free Rate</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="dividendYield">--</div>
+                    <div class="stat-label">Dividend Yield</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="dataPoints">--</div>
+                    <div class="stat-label">Data Points</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- IV Surface Plots -->
+        <div id="surfaceSection" class="section visible" style="display: none;">
+            <h2>Implied Volatility Surfaces</h2>
+            <p style="color: #666; font-size: 0.9em; margin-top: -0.5rem; margin-bottom: 1rem;">
+                <span id="scrollHint" style="display: none;">← Scroll horizontally to view both surfaces →</span>
+            </p>
+
+            <div class="surface-container">
+                <!-- Calls Surface -->
+                <div class="surface-plot" id="callsSurfaceContainer">
+                    <button class="fullscreen-3d-btn" onclick="toggleFullscreen('callsSurfaceContainer')">⛶ Fullscreen</button>
+                    <h3 style="text-align: center; color: #27ae60;">Call Options</h3>
+                    <div id="callsSurface"></div>
+                    <div id="callsLoading" class="loading-overlay" style="display: none;">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 1rem;">Calculating call surface...</p>
+                    </div>
+                </div>
+
+                <!-- Puts Surface -->
+                <div class="surface-plot" id="putsSurfaceContainer">
+                    <button class="fullscreen-3d-btn" onclick="toggleFullscreen('putsSurfaceContainer')">⛶ Fullscreen</button>
+                    <h3 style="text-align: center; color: #e74c3c;">Put Options</h3>
+                    <div id="putsSurface"></div>
+                    <div id="putsLoading" class="loading-overlay" style="display: none;">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 1rem;">Calculating put surface...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Surface Controls -->
+            <div class="surface-controls">
+                <button id="resetViewBtn" class="btn-secondary">Reset View</button>
+                <button id="exportDataBtn" class="btn-secondary">Export Data</button>
+            </div>
+        </div>
+
+        <!-- Information Section -->
+        <div class="section visible">
+            <h2>About Implied Volatility Surface</h2>
+            <div class="key-concept">
+                <p>
+                    The implied volatility surface shows how option-implied volatility varies across different strike prices and expiration dates.
+                    It provides insights into market expectations and can reveal volatility smile patterns and term structure.
+                </p>
+                <ul style="text-align: left; margin-top: 1rem;">
+                    <li><strong>X-axis (Time to Maturity):</strong> Days or years until option expiration</li>
+                    <li><strong>Y-axis (Strike Price):</strong> Option strike prices</li>
+                    <li><strong>Z-axis (Implied Volatility):</strong> Annualized implied volatility</li>
+                    <li><strong>Color Gradient:</strong> Visualizes volatility levels (cooler colors = lower IV, warmer = higher IV)</li>
+                </ul>
+                <p style="margin-top: 1rem;">
+                    <strong>Note:</strong> The surface is calculated using the Black-Scholes model with Newton-Raphson optimization.
+                    Only liquid options with sufficient trading volume are included in the calculation.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API configuration
+        const API_BASE_URL = 'http://localhost:5001/api';
+
+        // State variables
+        let currentTicker = '';
+        let surfaceData = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            setupStockSearch();
+        });
+
+        function setupEventListeners() {
+            // Calculate button
+            document.getElementById('calculateBtn').addEventListener('click', calculateIVSurface);
+
+            // Load from Yahoo button
+            document.getElementById('loadYahooDataBtn').addEventListener('click', loadYahooData);
+
+            // Reset view button
+            document.getElementById('resetViewBtn').addEventListener('click', resetSurfaceViews);
+
+            // Export data button
+            document.getElementById('exportDataBtn').addEventListener('click', exportSurfaceData);
+
+            // Enter key in search
+            document.getElementById('stockSearch').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && this.value) {
+                    const ticker = this.value.toUpperCase();
+                    document.getElementById('selectedTicker').value = ticker;
+                    checkStockData(ticker);
+                }
+            });
+        }
+
+        function setupStockSearch() {
+            const searchInput = document.getElementById('stockSearch');
+            const searchResults = document.getElementById('searchResults');
+            let searchTimeout;
+
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+
+                if (query.length < 1) {
+                    searchResults.style.display = 'none';
+                    return;
+                }
+
+                searchTimeout = setTimeout(() => {
+                    searchTickers(query);
+                }, 300);
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-dropdown-container')) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        }
+
+        async function searchTickers(query) {
+            const searchResults = document.getElementById('searchResults');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/search/tickers?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.success && data.results.length > 0) {
+                    displaySearchResults(data.results);
+                } else {
+                    searchResults.innerHTML = '<div style="padding: 10px;">No results found</div>';
+                    searchResults.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                searchResults.style.display = 'none';
+            }
+        }
+
+        function displaySearchResults(results) {
+            const searchResults = document.getElementById('searchResults');
+            searchResults.innerHTML = '';
+
+            results.slice(0, 10).forEach(result => {
+                const div = document.createElement('div');
+                div.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
+                div.innerHTML = `<strong>${result.symbol}</strong> - ${result.name}`;
+
+                div.addEventListener('click', function() {
+                    document.getElementById('stockSearch').value = result.symbol;
+                    document.getElementById('selectedTicker').value = result.symbol;
+                    searchResults.style.display = 'none';
+                    // Check if stock has data
+                    checkStockData(result.symbol);
+                });
+
+                div.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = '#f5f5f5';
+                });
+
+                div.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = 'white';
+                });
+
+                searchResults.appendChild(div);
+            });
+
+            searchResults.style.display = 'block';
+        }
+
+        async function checkStockData(ticker) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stock/${ticker}/check`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const calculateBtn = document.getElementById('calculateBtn');
+                    const loadYahooBtn = document.getElementById('loadYahooDataBtn');
+                    const noDataMsg = document.getElementById('noDataMessage');
+
+                    if (data.has_data) {
+                        // Stock has data - show calculate button
+                        calculateBtn.style.display = 'inline-block';
+                        loadYahooBtn.style.display = 'none';
+                        noDataMsg.style.display = 'none';
+                    } else {
+                        // Stock doesn't have data - show load from Yahoo button
+                        calculateBtn.style.display = 'none';
+                        loadYahooBtn.style.display = 'inline-block';
+                        noDataMsg.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking stock data:', error);
+            }
+        }
+
+        async function loadYahooData() {
+            const ticker = document.getElementById('selectedTicker').value ||
+                          document.getElementById('stockSearch').value;
+
+            if (!ticker) {
+                showError('Please search and select a stock ticker');
+                return;
+            }
+
+            try {
+                showLoading(true);
+                hideMessages();
+
+                const response = await fetch(`${API_BASE_URL}/stock/${ticker}/load`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ period: '2y' })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess(data.message || 'Stock data loaded successfully');
+
+                    // Update UI to show calculate button
+                    document.getElementById('calculateBtn').style.display = 'inline-block';
+                    document.getElementById('loadYahooDataBtn').style.display = 'none';
+                    document.getElementById('noDataMessage').style.display = 'none';
+
+                    // Check stock info to update UI
+                    await checkStockData(ticker);
+
+                    // Automatically calculate IV surface after a short delay
+                    setTimeout(() => calculateIVSurface(), 500);
+                } else {
+                    showError(data.error || 'Failed to load stock data from Yahoo Finance');
+                }
+
+            } catch (error) {
+                showError('Error loading stock data: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function calculateIVSurface() {
+            const ticker = document.getElementById('selectedTicker').value ||
+                          document.getElementById('stockSearch').value;
+
+            if (!ticker) {
+                showError('Please enter a stock ticker symbol');
+                return;
+            }
+
+            currentTicker = ticker.toUpperCase();
+            const expiryRange = document.getElementById('expiryRange').value;
+
+            // Show loading states
+            showLoading(true);
+            hideMessages();
+
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/iv-surface/${currentTicker}?max_expiry=${expiryRange}`
+                );
+                const result = await response.json();
+
+                if (!result.success) {
+                    showError(result.error || 'Failed to calculate IV surface');
+                    showLoading(false);
+                    return;
+                }
+
+                surfaceData = result.data;
+
+                // Display market parameters
+                displayMarketParams(surfaceData);
+
+                // Render surfaces
+                if (surfaceData.surfaces.calls) {
+                    renderSurface('calls', surfaceData.surfaces.calls);
+                } else {
+                    showWarning('No valid call options data available');
+                }
+
+                if (surfaceData.surfaces.puts) {
+                    renderSurface('puts', surfaceData.surfaces.puts);
+                } else {
+                    showWarning('No valid put options data available');
+                }
+
+                // Show sections
+                document.getElementById('marketParamsSection').style.display = 'block';
+                document.getElementById('surfaceSection').style.display = 'block';
+
+                // Check if horizontal scroll is needed and show hint
+                checkScrollHint();
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Failed to fetch IV surface data. Please try again.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayMarketParams(data) {
+            document.getElementById('spotPrice').textContent = `$${data.spot_price.toFixed(2)}`;
+            document.getElementById('riskFreeRate').textContent = `${(data.risk_free_rate * 100).toFixed(2)}%`;
+            document.getElementById('dividendYield').textContent = `${(data.dividend_yield * 100).toFixed(2)}%`;
+
+            // Count total data points
+            let totalPoints = 0;
+            if (data.surfaces.calls && data.surfaces.calls.raw_points) {
+                totalPoints += data.surfaces.calls.raw_points.T.length;
+            }
+            if (data.surfaces.puts && data.surfaces.puts.raw_points) {
+                totalPoints += data.surfaces.puts.raw_points.T.length;
+            }
+            document.getElementById('dataPoints').textContent = totalPoints.toString();
+        }
+
+        function renderSurface(type, surfaceData) {
+            const containerId = `${type}Surface`;
+
+            // Create 3D surface plot
+            const trace = {
+                type: 'surface',
+                x: surfaceData.T_grid,
+                y: surfaceData.K_grid,
+                z: surfaceData.sigma_grid,
+                colorscale: 'Viridis',
+                colorbar: {
+                    title: 'Implied Volatility',
+                    tickformat: '.1%',
+                    x: 1.02
+                },
+                hovertemplate: 'Time: %{x:.2f}y<br>Strike: $%{y:.2f}<br>IV: %{z:.1%}<extra></extra>'
+            };
+
+            const layout = {
+                scene: {
+                    xaxis: {
+                        title: 'Time to Maturity (Years)',
+                        gridcolor: '#e0e0e0',
+                        showspikes: false
+                    },
+                    yaxis: {
+                        title: 'Strike Price ($)',
+                        gridcolor: '#e0e0e0',
+                        showspikes: false
+                    },
+                    zaxis: {
+                        title: 'Implied Volatility',
+                        gridcolor: '#e0e0e0',
+                        tickformat: '.0%',
+                        showspikes: false
+                    },
+                    camera: {
+                        eye: {x: 1.5, y: -1.5, z: 1.3},
+                        center: {x: 0, y: 0, z: 0}
+                    }
+                },
+                margin: {l: 0, r: 0, t: 0, b: 0},
+                height: 350,
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['toImage'],
+                toImageButtonOptions: {
+                    format: 'png',
+                    filename: `iv_surface_${type}_${currentTicker}`,
+                    height: 800,
+                    width: 1200,
+                    scale: 2
+                }
+            };
+
+            Plotly.newPlot(containerId, [trace], layout, config);
+        }
+
+        function resetSurfaceViews() {
+            // Reset camera view for both surfaces
+            ['calls', 'puts'].forEach(type => {
+                const containerId = `${type}Surface`;
+                Plotly.relayout(containerId, {
+                    'scene.camera': {
+                        eye: {x: 1.5, y: -1.5, z: 1.3},
+                        center: {x: 0, y: 0, z: 0}
+                    }
+                });
+            });
+        }
+
+        function exportSurfaceData() {
+            if (!surfaceData) {
+                showError('No data to export');
+                return;
+            }
+
+            // Create CSV data
+            let csvContent = 'Type,Time to Maturity,Strike,Implied Volatility\n';
+
+            ['calls', 'puts'].forEach(type => {
+                if (surfaceData.surfaces[type] && surfaceData.surfaces[type].raw_points) {
+                    const points = surfaceData.surfaces[type].raw_points;
+                    for (let i = 0; i < points.T.length; i++) {
+                        csvContent += `${type},${points.T[i]},${points.K[i]},${points.iv[i]}\n`;
+                    }
+                }
+            });
+
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `iv_surface_${currentTicker}_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showLoading(show) {
+            document.getElementById('callsLoading').style.display = show ? 'flex' : 'none';
+            document.getElementById('putsLoading').style.display = show ? 'flex' : 'none';
+            document.getElementById('calculateBtn').disabled = show;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function showWarning(message) {
+            const warningDiv = document.getElementById('warningMessage');
+            warningDiv.textContent = message;
+            warningDiv.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            // Create a success message element if it doesn't exist
+            let successDiv = document.getElementById('successMessage');
+            if (!successDiv) {
+                successDiv = document.createElement('div');
+                successDiv.id = 'successMessage';
+                successDiv.className = 'success-message';
+                successDiv.style.cssText = 'background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 12px; border-radius: 4px; margin-top: 1rem; display: none;';
+                document.querySelector('.calculator').appendChild(successDiv);
+            }
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('warningMessage').style.display = 'none';
+            const successDiv = document.getElementById('successMessage');
+            if (successDiv) {
+                successDiv.style.display = 'none';
+            }
+        }
+
+        function toggleFullscreen(containerId) {
+            const element = document.getElementById(containerId);
+
+            if (!document.fullscreenElement) {
+                element.requestFullscreen().then(() => {
+                    // When entering fullscreen, resize the plot
+                    const plotId = containerId === 'callsSurfaceContainer' ? 'callsSurface' : 'putsSurface';
+                    setTimeout(() => {
+                        Plotly.relayout(plotId, {
+                            height: window.innerHeight - 100,
+                            width: window.innerWidth - 100
+                        });
+                    }, 100);
+                }).catch((err) => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    // When exiting fullscreen, restore original size
+                    const plotId = containerId === 'callsSurfaceContainer' ? 'callsSurface' : 'putsSurface';
+                    setTimeout(() => {
+                        Plotly.relayout(plotId, {
+                            height: 350,
+                            width: null
+                        });
+                    }, 100);
+                });
+            }
+        }
+
+        // Handle fullscreen changes
+        document.addEventListener('fullscreenchange', function() {
+            if (!document.fullscreenElement) {
+                // Reset both plots to original size when exiting fullscreen
+                ['callsSurface', 'putsSurface'].forEach(plotId => {
+                    if (document.getElementById(plotId).children.length > 0) {
+                        Plotly.relayout(plotId, {
+                            height: 350,
+                            width: null
+                        });
+                    }
+                });
+            }
+        });
+
+        // Check if scroll hint should be shown
+        function checkScrollHint() {
+            const container = document.querySelector('.surface-container');
+            const scrollHint = document.getElementById('scrollHint');
+
+            if (container) {
+                // Show hint if container has horizontal overflow
+                if (container.scrollWidth > container.clientWidth) {
+                    scrollHint.style.display = 'inline';
+                } else {
+                    scrollHint.style.display = 'none';
+                }
+            }
+        }
+
+        // Check scroll hint on window resize
+        window.addEventListener('resize', checkScrollHint);
+    </script>
+</body>
+</html>

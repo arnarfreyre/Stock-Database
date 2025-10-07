@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
 import sqlite3
 import pandas as pd
@@ -17,8 +17,14 @@ import os
 from src.config import DATABASE_PATH, API_HOST, API_PORT, DEBUG_MODE
 from src.utils.calculations import calculate_moving_average
 from src.analysis.volatility_calculator import calculate_volatility_from_prices
+from src.analysis.iv_surface import get_iv_surface_data
+from functools import lru_cache
+import time
 
-app = Flask(__name__)
+# Get the frontend directory path
+FRONTEND_DIR = Path(__file__).parent.parent / 'frontend'
+
+app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
 CORS(app)  # Enable CORS for all routes
 
 def get_db_connection():
@@ -567,6 +573,161 @@ def get_cumulative_returns(ticker):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+@app.route('/api/available-stocks',methods = ['GET'])
+def get_available_stocks():
+    try:
+        csv_path = Path(__file__).parent.parent / 'data' / 'nasdaq_screener.csv'
+        if not csv_path.exists():
+            return jsonify({
+                'success': False,
+                'error': 'nasdaq_screener.csv not found in path, '
+                'run utils/get-tickers.py'}),404
+
+        df = pd.read_csv(csv_path)
+        headers = df.columns.to_list()
+
+        # Filter out records without symbols and fill missing sector/industry
+        available_stocks = (
+            df[['symbol','name','sector','industry']]
+            .fillna({
+                'symbol': 'N/A',
+                'sector': 'N/A',
+                'industry': 'N/A'
+            })
+            .to_dict('records')
+        )
+
+        return jsonify({
+            'success': True,
+            'available_stocks': available_stocks,
+            'Total Stocks':len(available_stocks)})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+iv_surface_cache = {}
+@app.route('/api/iv-surface/<ticker>', methods=['GET'])
+def get_iv_surface(ticker):
+    """
+    Get implied volatility surface data for both calls and puts.
+
+    Returns JSON with surface data suitable for Plotly.js rendering.
+    """
+    try:
+        # Validate ticker exists in reference table
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT symbol, name FROM ticker_reference
+            WHERE symbol = ?
+        ''', (ticker.upper(),))
+
+        ticker_info = cursor.fetchone()
+        conn.close()
+
+        if not ticker_info:
+            return jsonify({
+                'success': False,
+                'error': f'Ticker {ticker.upper()} not found in reference database'
+            }), 404
+
+        # Check cache first (5-minute TTL)
+        cache_key = ticker.upper()
+        current_time = time.time()
+
+        if cache_key in iv_surface_cache:
+            cached_data, cached_time = iv_surface_cache[cache_key]
+            if current_time - cached_time < 300:  # 5 minutes
+                print(f"✅ Returning cached IV surface for {ticker}")
+                return jsonify({
+                    'success': True,
+                    'data': cached_data,
+                    'cached': True
+                })
+
+        # Get query parameters
+        min_expiry = request.args.get('min_expiry', 0, type=int)
+        max_expiry = request.args.get('max_expiry', 10, type=int)
+
+        print(f"📊 Calculating IV surface for {ticker}...")
+
+        # Calculate IV surface
+        surface_data = get_iv_surface_data(
+            ticker.upper(),
+            min_expiry_index=min_expiry,
+            max_expiry_index=max_expiry
+        )
+
+        # Check if we have valid surface data
+        if not surface_data['surfaces'].get('calls') and not surface_data['surfaces'].get('puts'):
+            return jsonify({
+                'success': False,
+                'error': f'Insufficient options data for {ticker}. The stock may not have liquid options.',
+                'error_code': 'INSUFFICIENT_DATA'
+            }), 400
+
+        # Cache the result
+        iv_surface_cache[cache_key] = (surface_data, current_time)
+
+        # Limit cache size to 100 entries (remove oldest if needed)
+        if len(iv_surface_cache) > 100:
+            oldest_key = min(iv_surface_cache.keys(),
+                            key=lambda k: iv_surface_cache[k][1])
+            del iv_surface_cache[oldest_key]
+
+        return jsonify({
+            'success': True,
+            'data': surface_data,
+            'cached': False
+        })
+
+    except ValueError as e:
+        error_msg = str(e)
+        if "does not have listed options" in error_msg:
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'error_code': 'NO_OPTIONS'
+            }), 404
+        else:
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'error_code': 'VALIDATION_ERROR'
+            }), 400
+
+    except Exception as e:
+        print(f"❌ Error calculating IV surface for {ticker}: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to calculate IV surface. Please try again.',
+            'error_code': 'CALCULATION_ERROR',
+            'details': str(e)
+        }), 500
+
+# Frontend routes
+@app.route('/')
+def serve_index():
+    """Serve the main index.html file."""
+    return send_from_directory(FRONTEND_DIR, 'index.html')
+
+@app.route('/<path:path>')
+def serve_static_files(path):
+    """Serve static files from the frontend directory."""
+    # Check if the file exists
+    file_path = FRONTEND_DIR / path
+    if file_path.exists() and file_path.is_file():
+        return send_from_directory(FRONTEND_DIR, path)
+    # If it's a directory, try to serve index.html from it
+    index_path = file_path / 'index.html'
+    if index_path.exists():
+        return send_from_directory(FRONTEND_DIR, f'{path}/index.html')
+    # Return 404 for non-existent files
+    return "Not Found", 404
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
@@ -590,6 +751,10 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
+
+
+
+
 
 if __name__ == '__main__':
     # Check if database exists

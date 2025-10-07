@@ -6,6 +6,7 @@
     <title>Stock Price Visualization</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="js/fullscreen-styles.css">
+    <link rel="stylesheet" href="css/stock_viewer_button.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
     <script src="js/plot-config.js"></script>
@@ -17,8 +18,18 @@
     <div class="container">
         <!-- Header -->
         <div class="main-header">
-            <h1>Stock Price Visualization</h1>
-            <p>Interactive charts with moving averages analysis</p>
+            <div class="header-content">
+                <div class="title-section">
+                    <h1>Stock Price Visualization</h1>
+                    <p>Interactive charts with moving averages analysis</p>
+                </div>
+                <button id="stockViewerBtn" class="stock-viewer-btn" title="View Available & Loaded Stocks">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 11H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-5m-4 0V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2Z"/>
+                    </svg>
+                    <span>Stock Viewer</span>
+                </button>
+            </div>
             <div class="nav-tabs">
                 <a href="index.html" class="nav-tab active">Home</a>
                 <a href="my-tools.html" class="nav-tab">My tools</a>
@@ -30,18 +41,18 @@
             <h2>Stock Selection</h2>
 
             <div class="calculator">
-                <div class="input-group" style="position: relative;">
+                <div class="input-group search-dropdown-container">
                     <label for="stockSearch">Search Stock (Ticker or Name)</label>
                     <input type="text" id="stockSearch" placeholder="Enter ticker symbol or company name..." autocomplete="off">
                     <input type="hidden" id="selectedTicker" value="">
-                    <div id="searchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 4px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div id="searchResults" class="search-results-dropdown">
                     </div>
                 </div>
 
                 <!-- Date Range Presets -->
                 <div class="input-group">
                     <label>Quick Date Ranges</label>
-                    <div class="date-presets" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                    <div class="date-presets date-presets-flex">
                         <button type="button" class="btn-preset" onclick="setDateRange(3, 'months')">3 Months</button>
                         <button type="button" class="btn-preset" onclick="setDateRange(6, 'months')">6 Months</button>
                         <button type="button" class="btn-preset" onclick="setDateRange(1, 'year')">1 Year</button>
@@ -64,46 +75,58 @@
 
                 <div class="input-group">
                     <label>Chart Lines (Toggle On/Off)</label>
-                    <div style="display: flex; gap: 2rem; margin-top: 1rem; flex-wrap: wrap;">
-                        <label style="display: flex; align-items: center; font-weight: normal;">
-                            <input type="checkbox" id="stockPrice" checked style="width: auto; margin-right: 0.5rem;">
-                            Stock Price
-                        </label>
-                        <label style="display: flex; align-items: center; font-weight: normal;">
-                            <input type="checkbox" id="ma5" checked style="width: auto; margin-right: 0.5rem;">
-                            5-Day MA
-                        </label>
-                        <label style="display: flex; align-items: center; font-weight: normal;">
-                            <input type="checkbox" id="ma20" checked style="width: auto; margin-right: 0.5rem;">
-                            20-Day MA
-                        </label>
-                        <label style="display: flex; align-items: center; font-weight: normal;">
-                            <input type="checkbox" id="ma40" checked style="width: auto; margin-right: 0.5rem;">
-                            40-Day MA
-                        </label>
+                    <div class="toggle-group-container">
+                        <div class="toggle-item">
+                            <span class="toggle-label">Stock Price</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="stockPrice" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-item">
+                            <span class="toggle-label">5-Day MA</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="ma5" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-item">
+                            <span class="toggle-label">20-Day MA</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="ma20" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-item">
+                            <span class="toggle-label">40-Day MA</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="ma40" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <div class="button-group-flex">
                     <button id="loadDataBtn" class="btn-primary">Load Chart</button>
-                    <button id="loadYahooDataBtn" class="btn-secondary" style="display: none;">Load Data from Yahoo Finance</button>
-                    <button id="updateDataBtn" class="btn-secondary" style="display: none;">Update from Yahoo Finance</button>
+                    <button id="loadYahooDataBtn" class="btn-secondary hidden">Load Data from Yahoo Finance</button>
+                    <button id="updateDataBtn" class="btn-secondary hidden">Update from Yahoo Finance</button>
                 </div>
 
                 <!-- No Data Message -->
-                <div id="noDataMessage" class="info-box" style="display: none; margin-top: 1.5rem;">
+                <div id="noDataMessage" class="info-box info-message-box hidden">
                     <strong>ℹ️ No data available for this stock.</strong>
-                    <p style="margin: 0.5rem 0 0 0;">Click "Load Data from Yahoo Finance" to fetch historical data.</p>
+                    <p class="info-message-text">Click "Load Data from Yahoo Finance" to fetch historical data.</p>
                 </div>
             </div>
         </div>
 
         <!-- Stock Information -->
-        <div id="stockInfo" class="section visible" style="display: none;">
+        <div id="stockInfo" class="section visible hidden">
             <h2>Stock Information</h2>
             <div class="key-concept">
                 <h3 id="stockName">--</h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <div class="stats-grid-layout">
                     <div>
                         <strong>Ticker:</strong> <span id="infoTicker">--</span>
                     </div>
@@ -127,10 +150,10 @@
         </div>
 
         <!-- Price Chart -->
-        <div id="chartSection" class="section visible" style="display: none;">
+        <div id="chartSection" class="section visible hidden">
             <h2>Price Chart</h2>
             <div class="chart-container" id="priceChartContainer">
-                <div class="formula-box" style="background: white; padding: 2rem; position: relative;">
+                <div class="formula-box chart-container-background">
                     <button class="fullscreen-btn" onclick="FullscreenManager.instance.toggleFullscreen('priceChartContainer', 'stock-prices', priceChart)" title="Fullscreen">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
@@ -156,10 +179,10 @@
         </div>
 
         <!-- Volume Chart -->
-        <div id="volumeSection" class="section visible" style="display: none;">
+        <div id="volumeSection" class="section visible hidden">
             <h2>Trading Volume</h2>
             <div class="chart-container" id="volumeChartContainer">
-                <div class="formula-box" style="background: white; padding: 2rem; position: relative;">
+                <div class="formula-box chart-container-background">
                     <button class="fullscreen-btn" onclick="FullscreenManager.instance.toggleFullscreen('volumeChartContainer', 'volume', volumeChart)" title="Fullscreen">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
@@ -185,42 +208,42 @@
         </div>
 
         <!-- Statistics -->
-        <div id="statsSection" class="section visible" style="display: none;">
+        <div id="statsSection" class="section visible hidden">
             <h2>Statistics</h2>
             <div class="greeks-grid">
                 <div class="greek-card">
                     <h4>Current Price</h4>
-                    <p style="font-size: 1.5em; color: #e74c3c; font-weight: bold;">
+                    <p class="stat-value-large stat-color-red">
                         $<span id="currentPrice">--</span>
                     </p>
                 </div>
                 <div class="greek-card">
                     <h4>Daily Change</h4>
-                    <p style="font-size: 1.5em; font-weight: bold;">
+                    <p class="stat-value-large">
                         <span id="dailyChange">--</span>
                     </p>
                 </div>
                 <div class="greek-card">
                     <h4>Period High</h4>
-                    <p style="font-size: 1.5em; color: #27ae60; font-weight: bold;">
+                    <p class="stat-value-large stat-color-green">
                         $<span id="periodHigh">--</span>
                     </p>
                 </div>
                 <div class="greek-card">
                     <h4>Period Low</h4>
-                    <p style="font-size: 1.5em; color: #e74c3c; font-weight: bold;">
+                    <p class="stat-value-large stat-color-red">
                         $<span id="periodLow">--</span>
                     </p>
                 </div>
                 <div class="greek-card">
                     <h4>Average Volume</h4>
-                    <p style="font-size: 1.5em; color: #3498db; font-weight: bold;">
+                    <p class="stat-value-large stat-color-blue">
                         <span id="avgVolume">--</span>
                     </p>
                 </div>
                 <div class="greek-card">
                     <h4>Volatility</h4>
-                    <p style="font-size: 1.5em; color: #9b59b6; font-weight: bold;">
+                    <p class="stat-value-large stat-color-purple">
                         <span id="volatility">--</span>%
                     </p>
                 </div>
@@ -228,597 +251,93 @@
         </div>
 
         <!-- Error Messages -->
-        <div id="errorMessage" class="warning-box" style="display: none;">
+        <div id="errorMessage" class="warning-box hidden">
             <strong>Error:</strong> <span id="errorText"></span>
         </div>
 
         <!-- Success Messages -->
-        <div id="successMessage" class="success-box" style="display: none;">
+        <div id="successMessage" class="success-box hidden">
             <strong>Success:</strong> <span id="successText"></span>
         </div>
     </div>
 
     <!-- Loading Spinner -->
-    <div id="loadingSpinner" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;">
-        <div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <div style="text-align: center;">
-                <div style="width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #e74c3c; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-                <p style="margin-top: 1rem; color: #666;">Loading...</p>
+    <div id="loadingSpinner" class="loading-spinner-overlay">
+        <div class="loading-spinner-container">
+            <div class="loading-spinner-content">
+                <div class="loading-spinner"></div>
+                <p class="loading-spinner-text">Loading...</p>
             </div>
         </div>
     </div>
 
-    <style>
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* Fullscreen Styles */
-        .chart-container {
-            position: relative;
-        }
-        
-        .chart-container:fullscreen {
-            background: #ffffff !important;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            transition: none !important;
-        }
-        
-        .chart-container:-webkit-full-screen {
-            background: #ffffff !important;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            transition: none !important;
-        }
-        
-        /* Maintain clean backgrounds in fullscreen */
-        .chart-container:fullscreen *,
-        .chart-container:-webkit-full-screen * {
-            transition: none !important;
-        }
-        
-        .chart-container:fullscreen .formula-box {
-            width: calc(100% - 250px);
-            height: 100vh;
-            margin: 0;
-            border-radius: 0;
-            box-shadow: none;
-            padding: 3rem !important;
-            background: #ffffff !important;
-            transition: none !important;
-        }
-        
-        .chart-container:-webkit-full-screen .formula-box {
-            width: calc(100% - 250px);
-            height: 100vh;
-            margin: 0;
-            border-radius: 0;
-            box-shadow: none;
-            padding: 3rem !important;
-            background: #ffffff !important;
-            transition: none !important;
-        }
-        
-        .chart-container:fullscreen canvas {
-            max-height: calc(100vh - 6rem);
-            background: transparent;
-            transition: none !important;
-        }
-        
-        .chart-container:-webkit-full-screen canvas {
-            max-height: calc(100vh - 6rem);
-            background: transparent;
-            transition: none !important;
-        }
-        
-        /* Fullscreen Button */
-        .fullscreen-btn {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 8px;
-            cursor: pointer;
-            z-index: 10;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .formula-box:hover .fullscreen-btn {
-            opacity: 1;
-        }
-        
-        .fullscreen-btn:hover {
-            background: #fff;
-            transform: scale(1.1);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-        
-        .fullscreen-btn svg {
-            color: #666;
-        }
-        
-        /* Exit Fullscreen Button */
-        .exit-fullscreen-btn {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 6px;
-            padding: 10px;
-            cursor: pointer;
-            z-index: 100;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .exit-fullscreen-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: scale(1.1);
-        }
-        
-        .exit-fullscreen-btn svg {
-            color: #fff;
-        }
-        
-        /* Fullscreen Sidebar */
-        .fullscreen-sidebar {
-            position: fixed;
-            right: 0;
-            top: 0;
-            width: 250px;
-            height: 100vh;
-            background: linear-gradient(to bottom, rgba(20, 20, 20, 0.95), rgba(30, 30, 30, 0.95));
-            backdrop-filter: blur(10px);
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            color: #fff;
-            overflow-y: auto;
-            z-index: 50;
-            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
-        }
-        
-        .chart-container:fullscreen .fullscreen-sidebar {
-            display: block !important;
-        }
-        
-        .chart-container:-webkit-full-screen .fullscreen-sidebar {
-            display: block !important;
-        }
-        
-        .sidebar-content {
-            padding: 2rem 1.5rem;
-            padding-top: 4rem;
-        }
-        
-        .sidebar-content h3 {
-            color: #fff;
-            font-size: 1.3rem;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #e74c3c;
-            font-weight: 300;
-            letter-spacing: 1px;
-        }
-        
-        /* Sidebar Sections */
-        .sidebar-section {
-            margin-bottom: 2rem;
-        }
-        
-        .sidebar-section-title {
-            color: #fff;
-            font-size: 0.95rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 1rem;
-            opacity: 0.9;
-        }
-        
-        .sidebar-options {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        
-        .sidebar-option {
-            display: flex;
-            align-items: center;
-            padding: 0.5rem 0.75rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: 1px solid transparent;
-        }
-        
-        .sidebar-option:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateX(-3px);
-        }
-        
-        .sidebar-option input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            margin-right: 0.75rem;
-            cursor: pointer;
-            accent-color: #e74c3c;
-        }
-        
-        .sidebar-option span {
-            font-size: 0.95rem;
-            color: rgba(255, 255, 255, 0.9);
-            user-select: none;
-        }
-        
-        .sidebar-option input:checked + span {
-            color: #fff;
-            font-weight: 500;
-        }
-        
-        /* Custom scrollbar for sidebar */
-        .fullscreen-sidebar::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .fullscreen-sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-        
-        .fullscreen-sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
-        }
-        
-        .fullscreen-sidebar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        /* Hide fullscreen button in fullscreen mode */
-        .chart-container:fullscreen .fullscreen-btn,
-        .chart-container:-webkit-full-screen .fullscreen-btn {
-            display: none;
-        }
-        
-        /* Date Range Controls in Sidebar */
-        .date-preset-buttons {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        
-        .date-preset-btn {
-            padding: 0.4rem 0.5rem;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 4px;
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: Georgia, serif;
-        }
-        
-        .date-preset-btn:hover {
-            background: rgba(231, 76, 60, 0.2);
-            border-color: rgba(231, 76, 60, 0.4);
-            color: #fff;
-            transform: scale(1.05);
-        }
-        
-        .date-preset-btn:active {
-            transform: scale(0.98);
-        }
-        
-        .date-preset-btn.active {
-            background: rgba(231, 76, 60, 0.3);
-            border-color: #e74c3c;
-            color: #fff;
-        }
-        
-        /* Manual Date Selection */
-        .manual-date-selection {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .date-input-group {
-            margin-bottom: 0.75rem;
-        }
-        
-        .date-input-group label {
-            display: block;
-            font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 0.25rem;
-            font-weight: 500;
-        }
-        
-        .fs-date-input {
-            width: 100%;
-            padding: 0.5rem;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            color: #fff;
-            font-size: 0.9rem;
-            font-family: Georgia, serif;
-            transition: all 0.2s ease;
-        }
-        
-        .fs-date-input:focus {
-            outline: none;
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(231, 76, 60, 0.6);
-            box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
-        }
-        
-        /* Custom date input styling for webkit browsers */
-        .fs-date-input::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            opacity: 0.6;
-            cursor: pointer;
-        }
-        
-        .fs-date-input::-webkit-calendar-picker-indicator:hover {
-            opacity: 1;
-        }
-        
-        .apply-date-btn {
-            width: 100%;
-            padding: 0.6rem;
-            margin-top: 0.5rem;
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            border: none;
-            border-radius: 4px;
-            color: #fff;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: Georgia, serif;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .apply-date-btn:hover {
-            background: linear-gradient(135deg, #c0392b, #a02920);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-        }
-        
-        .apply-date-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 6px rgba(231, 76, 60, 0.2);
-        }
-        
-        .apply-date-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .search-result-item {
-            padding: 10px 15px;
-            cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-            transition: background-color 0.2s;
-        }
-        
-        .search-result-item:hover,
-        .search-result-item.selected {
-            background-color: #f8f9fa;
-        }
-        
-        .search-result-item:last-child {
-            border-bottom: none;
-        }
-        
-        .search-result-symbol {
-            font-weight: bold;
-            color: #e74c3c;
-            font-size: 1.1em;
-        }
-        
-        .search-result-name {
-            color: #333;
-            margin-left: 10px;
-        }
-        
-        .search-result-sector {
-            display: block;
-            font-size: 0.85em;
-            color: #666;
-            margin-top: 3px;
-        }
-        
-        .search-no-results {
-            padding: 15px;
-            text-align: center;
-            color: #666;
-        }
-        
-        .search-highlight {
-            background-color: #ffeb3b;
-            padding: 1px 2px;
-            border-radius: 2px;
-        }
-        
-        .btn-preset {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.9rem;
-            background-color: #f8f9fa;
-            color: #333;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: Georgia, serif;
-        }
-        
-        .btn-preset:hover {
-            background-color: #e9ecef;
-            border-color: #adb5bd;
-            transform: translateY(-1px);
-        }
-        
-        .btn-preset:active {
-            transform: translateY(0);
-            background-color: #dee2e6;
-        }
-        
-        /* Resizable Chart Styles */
-        .resizable-chart-wrapper {
-            position: absolute !important;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-            transition: box-shadow 0.3s ease;
-            z-index: 10;
-        }
-        
-        .resizable-chart-wrapper.resizing {
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6);
-        }
-        
-        .resizable-chart-wrapper.dragging {
-            cursor: move;
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6);
-        }
-        
-        .resizable-chart-wrapper .formula-box {
-            width: 100% !important;
-            height: 100% !important;
-            margin: 0 !important;
-            border-radius: 8px;
-        }
-        
-        /* Resize Handles */
-        .resize-handle {
-            position: absolute;
-            background: rgba(231, 76, 60, 0);
-            transition: all 0.2s ease;
-            z-index: 20;
-        }
-        
-        .resize-handle:hover {
-            background: rgba(231, 76, 60, 0.3);
-        }
-        
-        .resize-handle:active {
-            background: rgba(231, 76, 60, 0.5);
-        }
-        
-        /* Corner handles */
-        .resize-handle-nw,
-        .resize-handle-ne,
-        .resize-handle-sw,
-        .resize-handle-se {
-            width: 12px;
-            height: 12px;
-        }
-        
-        .resize-handle-nw {
-            top: -6px;
-            left: -6px;
-            cursor: nw-resize;
-            border-top-left-radius: 6px;
-        }
-        
-        .resize-handle-ne {
-            top: -6px;
-            right: -6px;
-            cursor: ne-resize;
-            border-top-right-radius: 6px;
-        }
-        
-        .resize-handle-sw {
-            bottom: -6px;
-            left: -6px;
-            cursor: sw-resize;
-            border-bottom-left-radius: 6px;
-        }
-        
-        .resize-handle-se {
-            bottom: -6px;
-            right: -6px;
-            cursor: se-resize;
-            border-bottom-right-radius: 6px;
-        }
-        
-        /* Edge handles */
-        .resize-handle-n,
-        .resize-handle-s {
-            left: 12px;
-            right: 12px;
-            height: 8px;
-        }
-        
-        .resize-handle-n {
-            top: -4px;
-            cursor: n-resize;
-        }
-        
-        .resize-handle-s {
-            bottom: -4px;
-            cursor: s-resize;
-        }
-        
-        .resize-handle-e,
-        .resize-handle-w {
-            top: 12px;
-            bottom: 12px;
-            width: 8px;
-        }
-        
-        .resize-handle-e {
-            right: -4px;
-            cursor: e-resize;
-        }
-        
-        .resize-handle-w {
-            left: -4px;
-            cursor: w-resize;
-        }
-        
-        /* Show handles on hover */
-        .resizable-chart-wrapper:hover .resize-handle {
-            background: rgba(231, 76, 60, 0.2);
-        }
-        
-        /* Fullscreen container adjustments */
-        .chart-container:fullscreen .formula-box,
-        .chart-container:-webkit-full-screen .formula-box {
-            width: 100% !important;
-            height: 100% !important;
-            max-height: 100% !important;
-            border-radius: 8px;
-        }
-        
-        /* Override default fullscreen styles when using resizable wrapper */
-        .chart-container:fullscreen .resizable-chart-wrapper .formula-box,
-        .chart-container:-webkit-full-screen .resizable-chart-wrapper .formula-box {
-            padding: 2rem !important;
-        }
-    </style>
+    <!-- Stock Viewer Modal -->
+    <div id="stockViewerModal" class="stock-viewer-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Stock Database Viewer</h2>
+                <button class="modal-close-btn" id="closeStockViewerBtn">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="stocks-container">
+                    <!-- Available Stocks Section -->
+                    <div class="stocks-section">
+                        <div class="section-header">
+                            <h3>Available Stocks</h3>
+                            <p class="section-subtitle">All stocks that can be loaded from NASDAQ data</p>
+                            <div class="search-container">
+                                <input type="text" id="availableStocksSearch" placeholder="Search available stocks..." class="stock-search-input">
+                            </div>
+                        </div>
+                        <div class="stocks-table-container">
+                            <div id="availableStocksLoading" class="loading-message">Loading available stocks...</div>
+                            <div id="availableStocksError" class="error-message" style="display: none;"></div>
+                            <table id="availableStocksTable" class="stocks-table" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Company Name</th>
+                                        <th>Sector</th>
+                                        <th>Industry</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Loaded Stocks Section -->
+                    <div class="stocks-section">
+                        <div class="section-header">
+                            <h3>Loaded Stocks</h3>
+                            <p class="section-subtitle">Stocks currently available in the database</p>
+                            <div class="search-container">
+                                <input type="text" id="loadedStocksSearch" placeholder="Search loaded stocks..." class="stock-search-input">
+                            </div>
+                        </div>
+                        <div class="stocks-table-container">
+                            <div id="loadedStocksLoading" class="loading-message">Loading database stocks...</div>
+                            <div id="loadedStocksError" class="error-message" style="display: none;"></div>
+                            <table id="loadedStocksTable" class="stocks-table" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Company Name</th>
+                                        <th>Sector</th>
+                                        <th>Exchange</th>
+                                        <th>Records</th>
+                                        <th>Date Range</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>

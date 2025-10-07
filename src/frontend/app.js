@@ -995,6 +995,7 @@ function formatNumber(num) {
     return num.toFixed(0);
 }
 
+
 function showLoading(show) {
     document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
 }
@@ -1015,3 +1016,343 @@ function hideMessages() {
     document.getElementById('errorMessage').style.display = 'none';
     document.getElementById('successMessage').style.display = 'none';
 }
+
+// ==========================================================================
+// Stock Viewer Modal Functionality
+// ==========================================================================
+
+// Global variables for stock viewer
+let availableStocksData = [];
+let loadedStocksData = [];
+let filteredAvailableStocks = [];
+let filteredLoadedStocks = [];
+
+/**
+ * Initialize stock viewer functionality
+ */
+function initializeStockViewer() {
+    const stockViewerBtn = document.getElementById('stockViewerBtn');
+    const closeBtn = document.getElementById('closeStockViewerBtn');
+    const modal = document.getElementById('stockViewerModal');
+    const availableSearch = document.getElementById('availableStocksSearch');
+    const loadedSearch = document.getElementById('loadedStocksSearch');
+
+    // Event listeners
+    if (stockViewerBtn) {
+        stockViewerBtn.addEventListener('click', openStockViewer);
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeStockViewer);
+    }
+
+    // Close modal when clicking outside
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeStockViewer();
+            }
+        });
+    }
+
+    // ESC key to close modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
+            closeStockViewer();
+        }
+    });
+
+    // Search functionality
+    if (availableSearch) {
+        availableSearch.addEventListener('input', (e) => {
+            filterAvailableStocks(e.target.value);
+        });
+    }
+
+    if (loadedSearch) {
+        loadedSearch.addEventListener('input', (e) => {
+            filterLoadedStocks(e.target.value);
+        });
+    }
+}
+
+/**
+ * Open the stock viewer modal
+ */
+async function openStockViewer() {
+    const modal = document.getElementById('stockViewerModal');
+    if (modal) {
+        modal.classList.add('active');
+
+        // Reset search inputs
+        document.getElementById('availableStocksSearch').value = '';
+        document.getElementById('loadedStocksSearch').value = '';
+
+        // Load data
+        await loadStockViewerData();
+    }
+}
+
+/**
+ * Close the stock viewer modal
+ */
+function closeStockViewer() {
+    const modal = document.getElementById('stockViewerModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+/**
+ * Load data for both available and loaded stocks
+ */
+async function loadStockViewerData() {
+    await Promise.all([
+        loadAvailableStocks(),
+        loadLoadedStocks()
+    ]);
+}
+
+/**
+ * Load available stocks from the API
+ */
+async function loadAvailableStocks() {
+    const loadingElement = document.getElementById('availableStocksLoading');
+    const errorElement = document.getElementById('availableStocksError');
+    const tableElement = document.getElementById('availableStocksTable');
+
+    try {
+        // Show loading state
+        showElement(loadingElement);
+        hideElement(errorElement);
+        hideElement(tableElement);
+
+        const response = await fetch(`${API_BASE_URL}/available-stocks`);
+
+        if (!response.ok) {
+            throw new Error(`Failed to load available stocks: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            availableStocksData = data.available_stocks || [];
+            filteredAvailableStocks = [...availableStocksData];
+            renderAvailableStocks();
+
+            hideElement(loadingElement);
+            showElement(tableElement);
+        } else {
+            throw new Error(data.error || 'Failed to load available stocks');
+        }
+    } catch (error) {
+        console.error('Error loading available stocks:', error);
+
+        hideElement(loadingElement);
+        hideElement(tableElement);
+        showElement(errorElement);
+
+        errorElement.textContent = `Error: ${error.message}`;
+
+        if (error.message.includes('nasdaq_screener.csv')) {
+            errorElement.innerHTML = `
+                <strong>Error:</strong> nasdaq_screener.csv not found.<br>
+                <small>Run <code>python src/utils/get-tickers.py</code> to download the stock data file.</small>
+            `;
+        }
+    }
+}
+
+/**
+ * Load loaded stocks from the API
+ */
+async function loadLoadedStocks() {
+    const loadingElement = document.getElementById('loadedStocksLoading');
+    const errorElement = document.getElementById('loadedStocksError');
+    const tableElement = document.getElementById('loadedStocksTable');
+
+    try {
+        // Show loading state
+        showElement(loadingElement);
+        hideElement(errorElement);
+        hideElement(tableElement);
+
+        const response = await fetch(`${API_BASE_URL}/stocks`);
+
+        if (!response.ok) {
+            throw new Error(`Failed to load database stocks: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            loadedStocksData = data.stocks || [];
+            filteredLoadedStocks = [...loadedStocksData];
+            renderLoadedStocks();
+
+            hideElement(loadingElement);
+            showElement(tableElement);
+        } else {
+            throw new Error(data.error || 'Failed to load database stocks');
+        }
+    } catch (error) {
+        console.error('Error loading database stocks:', error);
+
+        hideElement(loadingElement);
+        hideElement(tableElement);
+        showElement(errorElement);
+
+        errorElement.textContent = `Error: ${error.message}`;
+    }
+}
+
+/**
+ * Render available stocks table
+ */
+function renderAvailableStocks() {
+    const tbody = document.querySelector('#availableStocksTable tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (filteredAvailableStocks.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 40px; color: #666;">
+                    ${availableStocksData.length === 0 ? 'No available stocks found' : 'No stocks match your search'}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    filteredAvailableStocks.forEach(stock => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><span class="ticker">${stock.symbol || 'N/A'}</span></td>
+            <td><span class="company-name">${stock.name || 'N/A'}</span></td>
+            <td><span class="sector">${stock.sector || 'N/A'}</span></td>
+            <td><span class="sector">${stock.industry || 'N/A'}</span></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Render loaded stocks table
+ */
+function renderLoadedStocks() {
+    const tbody = document.querySelector('#loadedStocksTable tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (filteredLoadedStocks.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
+                    ${loadedStocksData.length === 0 ? 'No stocks loaded in database' : 'No stocks match your search'}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    filteredLoadedStocks.forEach(stock => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><span class="ticker">${stock.ticker || 'N/A'}</span></td>
+            <td><span class="company-name">${stock.company_name || 'N/A'}</span></td>
+            <td><span class="sector">${stock.sector || 'N/A'}</span></td>
+            <td><span class="sector">${stock.exchange || 'N/A'}</span></td>
+            <td><span class="records-count">${formatNumber(stock.total_records || 0)}</span></td>
+            <td><span class="date-range">${formatDateRange(stock.date_range_start, stock.date_range_end)}</span></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Filter available stocks based on search term
+ */
+function filterAvailableStocks(searchTerm) {
+    const term = searchTerm.toLowerCase().trim();
+
+    if (!term) {
+        filteredAvailableStocks = [...availableStocksData];
+    } else {
+        filteredAvailableStocks = availableStocksData.filter(stock => {
+            const symbol = (stock.symbol || '').toLowerCase();
+            const name = (stock.name || '').toLowerCase();
+            const sector = (stock.sector || '').toLowerCase();
+            const industry = (stock.industry || '').toLowerCase();
+
+            return symbol.includes(term) ||
+                   name.includes(term) ||
+                   sector.includes(term) ||
+                   industry.includes(term);
+        });
+    }
+
+    renderAvailableStocks();
+}
+
+/**
+ * Filter loaded stocks based on search term
+ */
+function filterLoadedStocks(searchTerm) {
+    const term = searchTerm.toLowerCase().trim();
+
+    if (!term) {
+        filteredLoadedStocks = [...loadedStocksData];
+    } else {
+        filteredLoadedStocks = loadedStocksData.filter(stock => {
+            const ticker = (stock.ticker || '').toLowerCase();
+            const name = (stock.company_name || '').toLowerCase();
+            const sector = (stock.sector || '').toLowerCase();
+            const exchange = (stock.exchange || '').toLowerCase();
+
+            return ticker.includes(term) ||
+                   name.includes(term) ||
+                   sector.includes(term) ||
+                   exchange.includes(term);
+        });
+    }
+
+    renderLoadedStocks();
+}
+
+/**
+ * Format date range for display
+ */
+function formatDateRange(startDate, endDate) {
+    if (!startDate || !endDate) return 'N/A';
+
+    const start = new Date(startDate).toLocaleDateString();
+    const end = new Date(endDate).toLocaleDateString();
+
+    return `${start} - ${end}`;
+}
+
+/**
+ * Show element helper
+ */
+function showElement(element) {
+    if (element) {
+        element.style.display = 'block';
+    }
+}
+
+/**
+ * Hide element helper
+ */
+function hideElement(element) {
+    if (element) {
+        element.style.display = 'none';
+    }
+}
+
+// Initialize stock viewer when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initializeStockViewer();
+});

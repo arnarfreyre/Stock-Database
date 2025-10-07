@@ -6,26 +6,30 @@ A comprehensive web-based stock market analysis platform with real-time data vis
 
 ```
 ├── src/                      # Source code directory
-│   ├── backend/             # Backend services
-│   │   ├── app.py          # Flask REST API server
-│   │   └── stock_manager.py # Stock data management
+│   ├── backend/              # Backend services
+│   │   ├── app.py            # Flask REST API server
+│   │   └── stock_manager.py  # Stock data management
 │   │
-│   ├── frontend/            # Frontend assets
-│   │   ├── index.html      # Main web interface
-│   │   ├── app.js          # JavaScript application
-│   │   └── styles.css      # Styling
+│   ├── frontend/             # Frontend assets
+│   │   ├── index.html        # Main web interface
+│   │   ├── app.js            # JavaScript application
+│   │   └── styles.css        # Styling
 │   │
-│   ├── database/            # Database operations
-│   │   ├── initialize_db.py # Database initialization
-│   │   └── stock_market.db  # SQLite database
+│   ├── database/             # Database operations
+│   │   ├── initialize_db.py  # Database initialization
+│   │   └── stock_market.db   # SQLite database
 │   │
-│   ├── config/              # Configuration management
-│   │   └── config.py       # Application settings
+│   ├── config/               # Configuration management
+│   │   └── config.py         # Application settings
 │   │
-│   ├── utils/               # Utility functions
-│   │   └── calculations.py # Technical indicators
+│   ├── utils/                # Utility functions
+│   │   ├── get-tickers.py    # Gets market tickers
+│   │   └── calculations.py   # Technical indicators
 │   │
-│   ├── analysis/            # Analysis tools (future expansion)
+│   ├── analysis/             # Analysis tools (future expansions)
+│   │   ├── iv_bsm_solver.py  # Calculates IV using BSM
+│   │   ├── iv_surface.py     # Calculates IV surface
+│   │   ├── sharpe_ratio.py   # Calculates sharpe ratio for 2 stocks
 │   │   └── stock_analyzer.py # Advanced analysis module
 │   │
 │   └── data/                # Data storage

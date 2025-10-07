@@ -21,6 +21,13 @@ const solversConfig = [
         description: "Analyze and visualize overnight vs intraday cumulative returns from historical stock data. Compare performance patterns, calculate total and annualized returns, and identify best/worst performing periods.",
         path: "Toolbox/cumulative-returns.html",
         status: "available"
+    },
+    {
+        id: 4,
+        title: "Implied Volatility Surface",
+        description: "Visualize 3D implied volatility surfaces for call and put options. Interactive plots show how IV varies across strike prices and expiration dates, revealing volatility smile patterns and term structure.",
+        path: "Toolbox/iv-surface.html",
+        status: "available"
     }
 ];
 

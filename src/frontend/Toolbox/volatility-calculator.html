@@ -19,7 +19,7 @@
         </div>
 
         <!-- Back Button -->
-        <div style="margin-bottom: 2rem;">
+        <div class="info-message-box">
             <button onclick="window.location.href='../my-tools.html'" class="back-button">
                 ← Back to Toolbox
             </button>
@@ -30,18 +30,18 @@
             <h2>Stock Selection & Parameters</h2>
             
             <div class="calculator">
-                <div class="input-group" style="position: relative;">
+                <div class="input-group search-dropdown-container">
                     <label for="stockSearch">Search Stock (Ticker or Name)</label>
                     <input type="text" id="stockSearch" placeholder="Enter ticker symbol or company name..." autocomplete="off">
                     <input type="hidden" id="selectedTicker" value="">
-                    <div id="searchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 4px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div id="searchResults" class="search-results-dropdown">
                     </div>
                 </div>
 
                 <!-- Date Range Presets -->
                 <div class="input-group">
                     <label>Quick Date Ranges</label>
-                    <div class="date-presets" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                    <div class="date-presets date-presets-flex">
                         <button type="button" class="btn-preset" onclick="setDateRange(3, 'months')">3 Months</button>
                         <button type="button" class="btn-preset" onclick="setDateRange(6, 'months')">6 Months</button>
                         <button type="button" class="btn-preset" onclick="setDateRange(1, 'year')">1 Year</button>
@@ -62,21 +62,21 @@
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <div class="button-group-flex">
                     <button id="calculateBtn" class="btn-primary">Calculate Volatility</button>
-                    <button id="loadYahooDataBtn" class="btn-secondary" style="display: none;">Load Data from Yahoo Finance</button>
+                    <button id="loadYahooDataBtn" class="btn-secondary hidden">Load Data from Yahoo Finance</button>
                 </div>
                 
                 <!-- No Data Message -->
-                <div id="noDataMessage" class="info-box" style="display: none; margin-top: 1.5rem;">
+                <div id="noDataMessage" class="info-box info-message-box hidden">
                     <strong>ℹ️ No data available for this stock.</strong>
-                    <p style="margin: 0.5rem 0 0 0;">Click "Load Data from Yahoo Finance" to fetch historical data.</p>
+                    <p class="info-message-text">Click "Load Data from Yahoo Finance" to fetch historical data.</p>
                 </div>
             </div>
         </div>
 
         <!-- Primary Volatility Display -->
-        <div id="primaryVolatilitySection" class="section visible" style="display: none;">
+        <div id="primaryVolatilitySection" class="section visible hidden">
             <h2>Annualized Historic Volatility</h2>
             <div class="key-concept" style="text-align: center;">
                 <h3 id="stockNameDisplay" style="color: #2c5282; margin-bottom: 1rem;">--</h3>
@@ -91,7 +91,7 @@
         </div>
 
         <!-- Volatility Breakdown -->
-        <div id="volatilityBreakdownSection" class="section visible" style="display: none;">
+        <div id="volatilityBreakdownSection" class="section visible hidden">
             <h2>Volatility Breakdown</h2>
             <div class="greeks-grid">
                 <div class="greek-card">
