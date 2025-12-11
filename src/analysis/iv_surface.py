@@ -247,18 +247,39 @@ class IVSurfaceCalculator:
                     K_grid_1d = np.linspace(K_min, K_max, 30)
                     T_grid, K_grid = np.meshgrid(T_grid_1d, K_grid_1d)
 
+                    # Filter options by moneyness to exclude deep ITM (unreliable IV extraction)
+                    # Deep ITM options have low vega and IV becomes numerically unstable
+                    moneyness = np.array(valid_K) / S
+                    if option_type == 'calls':
+                        # For calls: exclude deep ITM (K/S < 0.9)
+                        moneyness_filter = moneyness > 0.9
+                    else:
+                        # For puts: exclude deep ITM (K/S > 1.1)
+                        moneyness_filter = moneyness < 1.1
+
+                    filtered_T = [t for i, t in enumerate(valid_T) if moneyness_filter[i]]
+                    filtered_K = [k for i, k in enumerate(valid_K) if moneyness_filter[i]]
+                    filtered_iv = [iv for i, iv in enumerate(iv_values) if moneyness_filter[i]]
+
                     # Interpolate IV values onto grid
-                    points = np.array([(t, k) for t, k in zip(valid_T, valid_K)])
-                    sigma_grid = griddata(points, np.array(iv_values),
-                                        (T_grid, K_grid), method='cubic')
+                    # Use linear interpolation to avoid Runge's phenomenon (polynomial overshoot)
+                    # Linear is more stable for sparse financial data and industry standard
+                    points = np.array([(t, k) for t, k in zip(filtered_T, filtered_K)])
+                    sigma_grid = griddata(points, np.array(filtered_iv),
+                                        (T_grid, K_grid), method='linear')
 
                     # Handle NaN values from extrapolation
                     # Use nearest neighbor interpolation to fill NaNs
                     nan_mask = np.isnan(sigma_grid)
                     if np.any(nan_mask):
-                        sigma_grid_nearest = griddata(points, np.array(iv_values),
+                        sigma_grid_nearest = griddata(points, np.array(filtered_iv),
                                                      (T_grid, K_grid), method='nearest')
                         sigma_grid[nan_mask] = sigma_grid_nearest[nan_mask]
+
+                    # CRITICAL: Enforce mathematical bounds to eliminate interpolation artifacts
+                    # Negative IVs are mathematically impossible (would create complex numbers in BS formula)
+                    # Clip to [0.01, 5.0] to match individual IV calculation bounds
+                    sigma_grid = np.clip(sigma_grid, 0.01, 5.0)
 
                     surfaces[option_type] = {
                         'T_grid': T_grid.tolist(),

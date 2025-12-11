@@ -1,0 +1,79 @@
+
+  Step 1: Backend API Development
+
+  Create New Endpoint for Available Stocks
+
+  Add this new endpoint to src/backend/app.py (around line 250, after existing endpoints):
+
+  @app.route('/api/available-stocks', methods=['GET'])
+  def get_available_stocks():
+      """Get list of all available stocks from CSV file."""
+      try:
+          import pandas as pd
+          from pathlib import Path
+
+          # Path to CSV file
+          csv_path = Path(__file__).parent.parent / 'data' / 'nasdaq_screener.csv'
+
+          if not csv_path.exists():
+              return jsonify({'success': False, 'error': 'CSV file not found'}), 404
+
+          # Read CSV file
+          df = pd.read_csv(csv_path)
+
+          # Convert to list of dictionaries
+          available_stocks = []
+          for _, row in df.iterrows():
+              available_stocks.append({
+                  'symbol': row['Symbol'],
+                  'name': row['Name'],
+                  'sector': row['Sector'] if pd.notna(row['Sector']) else 'N/A',
+                  'industry': row['Industry'] if pd.notna(row['Industry']) else 'N/A'
+              })
+
+          return jsonify({
+              'success': True,
+              'available_stocks': available_stocks,
+              'total_count': len(available_stocks)
+          })
+
+      except Exception as e:
+          return jsonify({'success': False, 'error': str(e)}), 500
+
+  Why this works:
+  - Follows the same pattern as existing endpoints (/api/stocks)
+  - Uses pandas to read CSV (already imported in your app)
+  - Returns consistent JSON format with success flag
+  - Handles errors gracefully
+
+
+  Step 5: Testing Your Implementation
+
+  1. Test Backend: Visit http://localhost:5001/api/available-stocks directly
+  2. Test Frontend: Click the "Database Info" button
+  3. Test Search: Search for stocks in the available stocks section
+
+  Key Learning Points
+
+  API Design:
+  - Consistent endpoint patterns (/api/something)
+  - Standard JSON response format with success flag
+  - Error handling with appropriate HTTP status codes
+
+  Frontend Architecture:
+  - Separation of HTML structure, CSS styling, and JavaScript logic
+  - Event-driven programming with addEventListener
+  - Async/await for API calls
+  - Dynamic DOM manipulation
+
+  Performance Considerations:
+  - Parallel API calls with Promise.all()
+  - Limiting displayed results (showing first 100 of ~7,000 stocks)
+  - Search filtering on client-side for responsiveness
+
+  User Experience:
+  - Loading states and error handling
+  - Modal accessibility (close on overlay click, close button)
+  - Search functionality for large datasets
+
+  This gives you a complete, production-ready feature following your existing codebase patterns!

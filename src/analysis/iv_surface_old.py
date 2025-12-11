@@ -57,7 +57,7 @@ def loss(S,K,T,r,q,sigma_guess,price,otype):
 
 loss_grad = grad(loss,argnums = 5) # Diffra python fall??? wth. argnum = 5 þýðir diffra tiliti til Sigma_guess
 
-def solve_for_iv(S,K,T,r,q,sigma_guess,price,otype="call",N_iter = 100,epsilon = 0.001,verbose = True):
+def solve_for_iv(S,K,T,r,q,sigma_guess,price,otype="call",N_iter = 1000,epsilon = 0.001,verbose = True):
 
     sigma = sigma_guess
     for i in range(N_iter):
@@ -77,7 +77,7 @@ def solve_for_iv(S,K,T,r,q,sigma_guess,price,otype="call",N_iter = 100,epsilon =
 """-----------------------------------Inputs---------------------------------"""
 #** This will only show options where strike > Spot **
 
-stock = 'MP'
+stock = 'POET'
 otype = "call"
 
 """-------------------------------------------------------------------------"""

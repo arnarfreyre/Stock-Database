@@ -310,9 +310,9 @@
                     It provides insights into market expectations and can reveal volatility smile patterns and term structure.
                 </p>
                 <ul style="text-align: left; margin-top: 1rem;">
-                    <li><strong>X-axis (Time to Maturity):</strong> Days or years until option expiration</li>
-                    <li><strong>Y-axis (Strike Price):</strong> Option strike prices</li>
-                    <li><strong>Z-axis (Implied Volatility):</strong> Annualized implied volatility</li>
+                    <li><strong>Weeks to Expiration:</strong> Time remaining until option expiration (horizontal axis)</li>
+                    <li><strong>Strike Price K:</strong> Option strike prices (depth axis)</li>
+                    <li><strong>Implied Volatility σ:</strong> Annualized implied volatility sigma (vertical axis)</li>
                     <li><strong>Color Gradient:</strong> Visualizes volatility levels (cooler colors = lower IV, warmer = higher IV)</li>
                 </ul>
                 <p style="margin-top: 1rem;">
@@ -591,35 +591,47 @@
         function renderSurface(type, surfaceData) {
             const containerId = `${type}Surface`;
 
+            // Convert time from years to weeks (1 year = 52 weeks)
+            const T_grid_weeks = surfaceData.T_grid.map(row => row.map(t => t * 52));
+
             // Create 3D surface plot
             const trace = {
                 type: 'surface',
-                x: surfaceData.T_grid,
+                x: T_grid_weeks,
                 y: surfaceData.K_grid,
                 z: surfaceData.sigma_grid,
                 colorscale: 'Viridis',
                 colorbar: {
-                    title: 'Implied Volatility',
+                    title: 'IV σ',
                     tickformat: '.1%',
                     x: 1.02
                 },
-                hovertemplate: 'Time: %{x:.2f}y<br>Strike: $%{y:.2f}<br>IV: %{z:.1%}<extra></extra>'
+                hovertemplate: 'Time: %{x:.1f} weeks<br>Strike K: $%{y:.2f}<br>IV σ: %{z:.1%}<extra></extra>'
             };
 
             const layout = {
                 scene: {
                     xaxis: {
-                        title: 'Time to Maturity (Years)',
+                        title: {
+                            text: 'Weeks to Expiration',
+                            font: { size: 12, color: '#333' }
+                        },
                         gridcolor: '#e0e0e0',
                         showspikes: false
                     },
                     yaxis: {
-                        title: 'Strike Price ($)',
+                        title: {
+                            text: 'Strike Price K',
+                            font: { size: 12, color: '#333' }
+                        },
                         gridcolor: '#e0e0e0',
                         showspikes: false
                     },
                     zaxis: {
-                        title: 'Implied Volatility',
+                        title: {
+                            text: 'Implied Volatility σ',
+                            font: { size: 12, color: '#333' }
+                        },
                         gridcolor: '#e0e0e0',
                         tickformat: '.0%',
                         showspikes: false
