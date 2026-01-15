@@ -24,7 +24,8 @@ python src/backend/app.py
 ### Dependencies Installation
 ```bash
 pip install -r requirements.txt
-# Required: yfinance, pandas, numpy, flask, flask-cors
+# Core: yfinance, pandas, numpy, flask, flask-cors
+# Analysis: jax, jaxlib, scipy (for IV surface calculations with automatic differentiation)
 ```
 
 ## Architecture Overview
@@ -77,6 +78,7 @@ All endpoints are served from `http://localhost:5001/api/`
 - `GET /api/stock/<ticker>/prices` - Get historical prices with moving averages
 - `GET /api/stock/<ticker>/volatility` - Calculate volatility metrics
 - `GET /api/stock/<ticker>/cumulative-returns` - Calculate overnight vs intraday returns
+- `GET /api/iv-surface/<ticker>` - Calculate implied volatility surface (calls and puts)
 - `POST /api/stock/<ticker>/load` - Load new stock or update existing data
 - `POST /api/stock/<ticker>/update` - Update existing stock data
 - `GET /api/health` - API health check
@@ -204,7 +206,7 @@ The main toolbox page (`my-tools.html`) uses `render-utils.js` to:
   - Generates volatility percentiles and term structure
   - Provides robust volatility measures (winsorized, MAD)
 
-#### 2. Cumulative Returns Calculator  
+#### 2. Cumulative Returns Calculator
 - **Frontend**: `Toolbox/cumulative-returns.html`
 - **Backend**: `/api/stock/<ticker>/cumulative-returns` endpoint
 - **Python**: `src/analysis/cumulative_returns.py`
@@ -213,6 +215,17 @@ The main toolbox page (`my-tools.html`) uses `render-utils.js` to:
   - Calculates cumulative performance metrics
   - Identifies best/worst performing periods
   - Compares return patterns
+
+#### 3. Implied Volatility Surface
+- **Frontend**: `Toolbox/iv-surface.html`
+- **Backend**: `/api/iv-surface/<ticker>` endpoint
+- **Python**: `src/analysis/iv_surface.py`
+- **Functionality**:
+  - Fetches real-time options chain data via yfinance
+  - Calculates IV using Newton-Raphson with JAX automatic differentiation
+  - Generates 3D interpolated surfaces for calls and puts
+  - Filters deep ITM options (unreliable IV extraction)
+  - Uses Black-Scholes model with dividend yield adjustment
 
 ### Creating New Tools - Step-by-Step Guide
 
@@ -321,6 +334,18 @@ Currently no formal test suite exists. When implementing tests, consider:
 ## Analysis Modules
 
 The application includes analysis modules in `src/analysis/`:
-- `volatility_calculator.py` - Volatility metrics calculation
+- `volatility_calculator.py` - Volatility metrics calculation (historic vol, VaR, percentiles)
 - `cumulative_returns.py` - Overnight vs intraday return analysis
+- `iv_surface.py` - Implied volatility surface calculator using JAX autodiff
+- `iv_bsm_solver.py` - Standalone Black-Scholes IV solver (development/testing)
+- `sharpe_ratio.py` - Sharpe ratio comparison for stock pairs
+- `RSI.py` - Relative Strength Index calculation
 - `stock_analyzer.py` - Framework for additional analysis tools
+
+### IV Surface Technical Details
+The IV surface calculator (`iv_surface.py`) uses:
+- **JAX automatic differentiation** for efficient gradient computation in Newton-Raphson
+- **Black-Scholes formula** with continuous dividend yield adjustment
+- **Linear interpolation** with nearest-neighbor fallback for stable surface generation
+- **Moneyness filtering**: Excludes deep ITM options (K/S < 0.9 for calls, K/S > 1.1 for puts) where IV extraction is numerically unstable
+- **API caching**: 5-minute cache with LRU eviction (max 100 entries)
