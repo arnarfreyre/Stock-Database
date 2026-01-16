@@ -35,6 +35,13 @@ const solversConfig = [
         description: "Calculate call and put option prices using the Black-Scholes-Merton model. Displays all Greeks (Delta, Gamma, Vega, Theta), Monte Carlo verification, and real-time comparison with market prices from Yahoo Finance.",
         path: "Toolbox/option-pricer.html",
         status: "available"
+    },
+    {
+        id: 6,
+        title: "Interest Rate Swap Calculator",
+        description: "Price interest rate swaps by calculating the par swap rate from discount factors. Computes forward rates, time fractions (A/365), and weighted contributions for each payment period. Supports various tenors and payment frequencies.",
+        path: "Toolbox/swap-calculator.html",
+        status: "available"
     }
 ];
 
