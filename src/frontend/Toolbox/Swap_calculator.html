@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interest Rate Swap Calculator</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        .container { max-width: 1100px; padding: 40px 30px; }
+        .main-header { padding: 1rem 0; margin-bottom: 1rem; }
+        .main-header h1 { font-size: 2.2em; margin-bottom: 0.2em; }
+        .main-header p { font-size: 1em; margin: 0; }
+
+        .section { margin-bottom: 1.5rem; }
+        .section h2 { font-size: 1.4em; margin-top: 0; margin-bottom: 0.8rem; }
+
+        .calculator { padding: 1.25rem; margin: 0; }
+        .input-group { margin-bottom: 0.8rem; }
+        .input-group label { margin-bottom: 0.3rem; font-size: 0.9em; display: block; font-weight: 600; color: #444; }
+        .input-group small { font-size: 0.8em; color: #666; }
+
+        .params-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+        @media (max-width: 800px) {
+            .params-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 500px) {
+            .params-grid { grid-template-columns: 1fr; }
+        }
+
+        .params-grid input, .params-grid select {
+            padding: 0.6rem;
+            font-size: 0.95rem;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: 'Georgia', serif;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 1.2rem;
+            flex-wrap: wrap;
+        }
+
+        /* Discount Factors Input Table */
+        .df-input-section {
+            margin-top: 1.5rem;
+        }
+
+        .df-table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        .df-input-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .df-input-table th {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 0.8rem 0.6rem;
+            text-align: center;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .df-input-table td {
+            padding: 0.6rem;
+            text-align: center;
+            border-bottom: 1px solid #e8ecef;
+            font-size: 0.9em;
+        }
+
+        .df-input-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .df-input-table input {
+            width: 100%;
+            max-width: 120px;
+            padding: 0.4rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            font-family: 'Georgia', serif;
+            font-size: 0.9em;
+        }
+
+        .df-input-table input:focus {
+            outline: none;
+            border-color: #e74c3c;
+        }
+
+        .df-input-table .date-cell {
+            font-weight: 600;
+            color: #2c3e50;
+            background: #f8f9fa;
+        }
+
+        .df-input-table .computed {
+            color: #27ae60;
+            font-weight: 600;
+            font-family: monospace;
+        }
+
+        .df-input-table .total-row {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .df-input-table .total-row td {
+            border-top: 2px solid #2c3e50;
+        }
+
+        /* Results Section */
+        .swap-rate-result {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 1.5rem;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+
+        .swap-rate-result h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1em;
+            font-weight: 400;
+            opacity: 0.9;
+        }
+
+        .swap-rate-value {
+            font-size: 3em;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .swap-rate-formula {
+            margin-top: 0.8rem;
+            font-size: 0.85em;
+            opacity: 0.85;
+            font-family: monospace;
+        }
+
+        /* Summary Stats */
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 3px solid #3498db;
+        }
+
+        .stat-card .label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 0.3rem;
+        }
+
+        .stat-card .value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+            font-family: monospace;
+        }
+
+        /* Formula Reference */
+        .formula-box {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 1rem 1.5rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9em;
+            margin-top: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .formula-box .var { color: #3498db; }
+        .formula-box .op { color: #e74c3c; }
+
+        /* Key Concept Box */
+        .key-concept {
+            background: linear-gradient(135deg, #e8f4f8 0%, #d6e9f0 100%);
+            padding: 1.2rem;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            margin-top: 1.5rem;
+        }
+
+        .key-concept h4 {
+            color: #2c5282;
+            margin: 0 0 0.8rem 0;
+            font-size: 1em;
+        }
+
+        .key-concept ul {
+            margin: 0;
+            padding-left: 1.2rem;
+        }
+
+        .key-concept li {
+            margin-bottom: 0.4rem;
+            font-size: 0.9em;
+            color: #444;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 0.6rem 1.5rem;
+            font-size: 0.95em;
+        }
+
+        .back-button {
+            padding: 0.5rem 1rem;
+            font-size: 0.9em;
+        }
+
+        .info-message-box {
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .error-msg {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            padding: 0.6rem 1rem;
+            margin-top: 0.8rem;
+            border-radius: 4px;
+            display: none;
+            font-size: 0.9em;
+        }
+
+        .error-msg.show { display: block; }
+
+        .hidden { display: none; }
+
+        /* Highlight computed cells on hover */
+        .df-input-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Loading state */
+        .calculating {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-header">
+            <h1>Interest Rate Swap Calculator</h1>
+            <p>Calculate swap rates from discount factors using the A/365 day count convention</p>
+        </div>
+
+        <div class="info-message-box">
+            <button onclick="window.location.href='my-tools.html'" class="back-button">← Back to Toolbox</button>
+        </div>
+
+        <!-- Input Parameters -->
+        <div class="section visible">
+            <h2>Swap Parameters</h2>
+            <div class="calculator">
+                <div class="params-grid">
+                    <div class="input-group">
+                        <label>Start Date (Today)</label>
+                        <input type="date" id="startDate" value="2024-02-01">
+                    </div>
+                    <div class="input-group">
+                        <label>Payment Frequency</label>
+                        <select id="frequency">
+                            <option value="3">Quarterly (3 months)</option>
+                            <option value="6" selected>Semi-Annual (6 months)</option>
+                            <option value="12">Annual (12 months)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Swap Tenor (Years)</label>
+                        <select id="tenor">
+                            <option value="1">1 Year</option>
+                            <option value="2">2 Years</option>
+                            <option value="3" selected>3 Years</option>
+                            <option value="5">5 Years</option>
+                            <option value="7">7 Years</option>
+                            <option value="10">10 Years</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Notional (USD)</label>
+                        <input type="text" id="notional" value="10,000,000" placeholder="10,000,000">
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button id="generateBtn" class="btn-primary">Generate Payment Schedule</button>
+                    <button id="calculateBtn" class="btn-secondary" disabled>Calculate Swap Rate</button>
+                    <button id="resetBtn" class="btn-secondary">Reset</button>
+                    <button id="loadExampleBtn" class="btn-secondary">Load Example</button>
+                </div>
+
+                <div id="errorMessage" class="error-msg"></div>
+            </div>
+        </div>
+
+        <!-- Discount Factors Input -->
+        <div id="dfSection" class="section visible hidden">
+            <h2>Discount Factors & Calculations</h2>
+            <p style="color: #666; font-size: 0.9em; margin-bottom: 1rem;">
+                Enter discount factors for each date. Calculations update automatically.
+            </p>
+
+            <div class="df-table-container">
+                <table class="df-input-table" id="dfTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Discount Factor (DF<sub>i</sub>)</th>
+                            <th>Time t<sub>i</sub> (years)</th>
+                            <th>Forward Rate F<sub>i</sub></th>
+                            <th>F<sub>i</sub> × t<sub>i</sub> × DF<sub>i</sub></th>
+                            <th>t<sub>i</sub> × DF<sub>i</sub></th>
+                        </tr>
+                    </thead>
+                    <tbody id="dfTableBody">
+                        <!-- Generated dynamically -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="4" style="text-align: right; padding-right: 1rem;"><strong>Totals:</strong></td>
+                            <td class="computed" id="totalFtDF">--</td>
+                            <td class="computed" id="totalTDF">--</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Formula Display -->
+            <div class="formula-box">
+                <span class="var">SR</span>
+                <span class="op">=</span>
+                <span>Σ(F<sub>i</sub> × t<sub>i</sub> × DF<sub>i</sub>)</span>
+                <span class="op">/</span>
+                <span>Σ(t<sub>i</sub> × DF<sub>i</sub>)</span>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="section visible hidden">
+            <h2>Swap Rate Result</h2>
+
+            <div class="swap-rate-result">
+                <h3>Par Swap Rate</h3>
+                <div class="swap-rate-value" id="swapRateValue">--%</div>
+                <div class="swap-rate-formula" id="swapRateCalc">--</div>
+            </div>
+
+            <div class="summary-stats">
+                <div class="stat-card">
+                    <div class="label">Number of Payments</div>
+                    <div class="value" id="numPayments">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total Time (Years)</div>
+                    <div class="value" id="totalTime">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Σ(F×t×DF)</div>
+                    <div class="value" id="sumFtDF">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Σ(t×DF)</div>
+                    <div class="value" id="sumTDF">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Fixed Leg PV</div>
+                    <div class="value" id="fixedLegPV">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Floating Leg PV</div>
+                    <div class="value" id="floatingLegPV">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="section visible">
+            <div class="key-concept">
+                <h4>About Interest Rate Swaps</h4>
+                <ul>
+                    <li><strong>Swap Rate (SR):</strong> The fixed rate that makes the present value of fixed and floating legs equal at inception.</li>
+                    <li><strong>Discount Factor (DF):</strong> Present value of $1 received at a future date.</li>
+                    <li><strong>Forward Rate (F<sub>i</sub>):</strong> Implied rate between two future dates, calculated as: F<sub>i</sub> = (DF<sub>i-1</sub>/DF<sub>i</sub> - 1) / t<sub>i</sub></li>
+                    <li><strong>Day Count (A/365):</strong> Actual number of days divided by 365 for time fraction calculations.</li>
+                    <li><strong>Par Swap:</strong> A swap with zero net present value at inception (fixed leg PV = floating leg PV).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let paymentDates = [];
+        let discountFactors = {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('generateBtn').addEventListener('click', generateSchedule);
+            document.getElementById('calculateBtn').addEventListener('click', calculateSwapRate);
+            document.getElementById('resetBtn').addEventListener('click', reset);
+            document.getElementById('loadExampleBtn').addEventListener('click', loadExample);
+
+            // Auto-calculate on parameter change
+            document.getElementById('frequency').addEventListener('change', () => {
+                if (paymentDates.length > 0) generateSchedule();
+            });
+            document.getElementById('tenor').addEventListener('change', () => {
+                if (paymentDates.length > 0) generateSchedule();
+            });
+        });
+
+        function generateSchedule() {
+            hideError();
+
+            const startDate = new Date(document.getElementById('startDate').value);
+            const frequency = parseInt(document.getElementById('frequency').value);
+            const tenor = parseInt(document.getElementById('tenor').value);
+
+            if (isNaN(startDate.getTime())) {
+                showError('Please enter a valid start date');
+                return;
+            }
+
+            // Calculate number of payment periods
+            const numPeriods = (tenor * 12) / frequency;
+
+            // Generate payment dates
+            paymentDates = [{ date: new Date(startDate), isStart: true }];
+
+            for (let i = 1; i <= numPeriods; i++) {
+                const paymentDate = new Date(startDate);
+                paymentDate.setMonth(paymentDate.getMonth() + (i * frequency));
+                paymentDates.push({ date: paymentDate, isStart: false });
+            }
+
+            // Build the table
+            buildTable();
+
+            // Show sections
+            document.getElementById('dfSection').classList.remove('hidden');
+            document.getElementById('calculateBtn').disabled = false;
+        }
+
+        function buildTable() {
+            const tbody = document.getElementById('dfTableBody');
+            tbody.innerHTML = '';
+
+            paymentDates.forEach((item, index) => {
+                const row = document.createElement('tr');
+                const dateStr = formatDate(item.date);
+
+                if (item.isStart) {
+                    // Start date row - only shows DF = 1.0
+                    row.innerHTML = `
+                        <td class="date-cell">${dateStr}</td>
+                        <td>
+                            <input type="number" id="df_${index}" value="1.00000"
+                                   step="0.00001" min="0" max="1" readonly
+                                   style="background: #f0f0f0;">
+                        </td>
+                        <td class="computed">--</td>
+                        <td class="computed">--</td>
+                        <td class="computed">--</td>
+                        <td class="computed">--</td>
+                    `;
+                } else {
+                    // Payment date rows
+                    row.innerHTML = `
+                        <td class="date-cell">${dateStr}</td>
+                        <td>
+                            <input type="number" id="df_${index}" value=""
+                                   step="0.00001" min="0" max="1"
+                                   placeholder="0.99000"
+                                   onchange="updateCalculations()">
+                        </td>
+                        <td class="computed" id="time_${index}">--</td>
+                        <td class="computed" id="fwd_${index}">--</td>
+                        <td class="computed" id="ftdf_${index}">--</td>
+                        <td class="computed" id="tdf_${index}">--</td>
+                    `;
+                }
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateCalculations() {
+            const startDate = paymentDates[0].date;
+            let totalFtDF = 0;
+            let totalTDF = 0;
+            let prevDF = 1.0;
+            let allValid = true;
+
+            for (let i = 1; i < paymentDates.length; i++) {
+                const dfInput = document.getElementById(`df_${i}`);
+                const df = parseFloat(dfInput.value);
+
+                if (isNaN(df) || df <= 0 || df >= prevDF) {
+                    document.getElementById(`time_${i}`).textContent = '--';
+                    document.getElementById(`fwd_${i}`).textContent = '--';
+                    document.getElementById(`ftdf_${i}`).textContent = '--';
+                    document.getElementById(`tdf_${i}`).textContent = '--';
+                    allValid = false;
+                    continue;
+                }
+
+                // Calculate time fraction (A/365)
+                const daysDiff = Math.round((paymentDates[i].date - paymentDates[i-1].date) / (1000 * 60 * 60 * 24));
+                const ti = daysDiff / 365;
+
+                // Calculate forward rate
+                const fi = (prevDF / df - 1) / ti;
+
+                // Calculate weighted values
+                const ftdf = fi * ti * df;
+                const tdf = ti * df;
+
+                // Update display
+                document.getElementById(`time_${i}`).textContent = ti.toFixed(5);
+                document.getElementById(`fwd_${i}`).textContent = fi.toFixed(5);
+                document.getElementById(`ftdf_${i}`).textContent = ftdf.toFixed(7);
+                document.getElementById(`tdf_${i}`).textContent = tdf.toFixed(4);
+
+                totalFtDF += ftdf;
+                totalTDF += tdf;
+                prevDF = df;
+            }
+
+            // Update totals
+            if (allValid && totalTDF > 0) {
+                document.getElementById('totalFtDF').textContent = totalFtDF.toFixed(8);
+                document.getElementById('totalTDF').textContent = totalTDF.toFixed(7);
+            } else {
+                document.getElementById('totalFtDF').textContent = '--';
+                document.getElementById('totalTDF').textContent = '--';
+            }
+        }
+
+        function calculateSwapRate() {
+            hideError();
+
+            // Validate all discount factors are entered
+            let prevDF = 1.0;
+            for (let i = 1; i < paymentDates.length; i++) {
+                const df = parseFloat(document.getElementById(`df_${i}`).value);
+                if (isNaN(df) || df <= 0 || df >= prevDF) {
+                    showError(`Invalid discount factor at row ${i + 1}. DFs must decrease and be positive.`);
+                    return;
+                }
+                prevDF = df;
+            }
+
+            // Calculate swap rate
+            const startDate = paymentDates[0].date;
+            let totalFtDF = 0;
+            let totalTDF = 0;
+            prevDF = 1.0;
+
+            for (let i = 1; i < paymentDates.length; i++) {
+                const df = parseFloat(document.getElementById(`df_${i}`).value);
+                const daysDiff = Math.round((paymentDates[i].date - paymentDates[i-1].date) / (1000 * 60 * 60 * 24));
+                const ti = daysDiff / 365;
+                const fi = (prevDF / df - 1) / ti;
+
+                totalFtDF += fi * ti * df;
+                totalTDF += ti * df;
+                prevDF = df;
+            }
+
+            const swapRate = totalFtDF / totalTDF;
+            const swapRatePct = swapRate * 100;
+
+            // Display results
+            document.getElementById('resultsSection').classList.remove('hidden');
+            document.getElementById('swapRateValue').textContent = swapRatePct.toFixed(4) + '%';
+            document.getElementById('swapRateCalc').textContent =
+                `${totalFtDF.toFixed(8)} / ${totalTDF.toFixed(7)} = ${swapRate.toFixed(8)}`;
+
+            // Summary stats
+            const notionalStr = document.getElementById('notional').value.replace(/,/g, '');
+            const notional = parseFloat(notionalStr) || 10000000;
+            const totalDays = Math.round((paymentDates[paymentDates.length - 1].date - paymentDates[0].date) / (1000 * 60 * 60 * 24));
+
+            document.getElementById('numPayments').textContent = paymentDates.length - 1;
+            document.getElementById('totalTime').textContent = (totalDays / 365).toFixed(4);
+            document.getElementById('sumFtDF').textContent = totalFtDF.toFixed(8);
+            document.getElementById('sumTDF').textContent = totalTDF.toFixed(7);
+
+            // PV calculations (for reference)
+            const fixedPV = swapRate * totalTDF * notional;
+            const floatingPV = totalFtDF * notional;
+
+            document.getElementById('fixedLegPV').textContent = formatCurrency(fixedPV);
+            document.getElementById('floatingLegPV').textContent = formatCurrency(floatingPV);
+
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function loadExample() {
+            // Set parameters from the image example
+            document.getElementById('startDate').value = '2024-02-01';
+            document.getElementById('frequency').value = '6';
+            document.getElementById('tenor').value = '3';
+            document.getElementById('notional').value = '10,000,000';
+
+            // Generate schedule first
+            generateSchedule();
+
+            // Load the example discount factors
+            const exampleDFs = [
+                1.00000,  // 1-Feb-24 (start)
+                0.99247,  // 1-Aug-24
+                0.97922,  // 1-Feb-25
+                0.96020,  // 1-Aug-25
+                0.92682,  // 1-Feb-26
+                0.89567,  // 1-Aug-26
+                0.83277   // 1-Feb-27
+            ];
+
+            // Set values with a small delay to ensure DOM is ready
+            setTimeout(() => {
+                for (let i = 0; i < exampleDFs.length; i++) {
+                    const input = document.getElementById(`df_${i}`);
+                    if (input && !input.readOnly) {
+                        input.value = exampleDFs[i].toFixed(5);
+                    }
+                }
+                updateCalculations();
+
+                // Auto-calculate
+                setTimeout(calculateSwapRate, 100);
+            }, 100);
+        }
+
+        function reset() {
+            document.getElementById('startDate').value = '2024-02-01';
+            document.getElementById('frequency').value = '6';
+            document.getElementById('tenor').value = '3';
+            document.getElementById('notional').value = '10,000,000';
+
+            document.getElementById('dfSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('calculateBtn').disabled = true;
+
+            paymentDates = [];
+            hideError();
+        }
+
+        // Utility functions
+        function formatDate(date) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear().toString().slice(-2)}`;
+        }
+
+        function formatCurrency(value) {
+            if (Math.abs(value) >= 1000000) {
+                return '$' + (value / 1000000).toFixed(2) + 'M';
+            } else if (Math.abs(value) >= 1000) {
+                return '$' + (value / 1000).toFixed(2) + 'K';
+            }
+            return '$' + value.toFixed(2);
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = msg;
+            el.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+    </script>
+</body>
+</html>
