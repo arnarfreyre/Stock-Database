@@ -28,6 +28,13 @@ const solversConfig = [
         description: "Visualize 3D implied volatility surfaces for call and put options. Interactive plots show how IV varies across strike prices and expiration dates, revealing volatility smile patterns and term structure.",
         path: "Toolbox/iv-surface.html",
         status: "available"
+    },
+    {
+        id: 5,
+        title: "Option Pricer & Greeks Calculator",
+        description: "Calculate call and put option prices using the Black-Scholes-Merton model. Displays all Greeks (Delta, Gamma, Vega, Theta), Monte Carlo verification, and real-time comparison with market prices from Yahoo Finance.",
+        path: "Toolbox/option-pricer.html",
+        status: "available"
     }
 ];
 

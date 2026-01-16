@@ -18,8 +18,10 @@ from src.config import DATABASE_PATH, API_HOST, API_PORT, DEBUG_MODE
 from src.utils.calculations import calculate_moving_average
 from src.analysis.volatility_calculator import calculate_volatility_from_prices
 from src.analysis.iv_surface import get_iv_surface_data
+from src.analysis.Derivative_basics import VIII_Solvers
 from functools import lru_cache
 import time
+import yfinance as yf
 
 # Get the frontend directory path
 FRONTEND_DIR = Path(__file__).parent.parent / 'frontend'
@@ -707,6 +709,251 @@ def get_iv_surface(ticker):
             'error_code': 'CALCULATION_ERROR',
             'details': str(e)
         }), 500
+
+@app.route('/api/option/price', methods=['POST'])
+def calculate_option_price():
+    """
+    Calculate option prices and Greeks using Black-Scholes-Merton model.
+
+    Request body:
+    {
+        "spot_price": 100,       # Current stock price
+        "strike_price": 105,     # Strike price
+        "time_to_maturity": 1,   # Time to maturity in years
+        "risk_free_rate": 0.05,  # Risk-free rate (decimal)
+        "volatility": 0.2,       # Volatility (decimal)
+        "n_simulations": 100000  # Optional: Monte Carlo simulations
+    }
+    """
+    try:
+        data = request.json
+
+        # Validate required parameters
+        required = ['spot_price', 'strike_price', 'time_to_maturity', 'risk_free_rate', 'volatility']
+        for param in required:
+            if param not in data:
+                return jsonify({'success': False, 'error': f'Missing required parameter: {param}'}), 400
+
+        S0 = float(data['spot_price'])
+        K = float(data['strike_price'])
+        T = float(data['time_to_maturity'])
+        r = float(data['risk_free_rate'])
+        sigma = float(data['volatility'])
+        n_sim = int(data.get('n_simulations', 100000))
+
+        # Validate parameters
+        if S0 <= 0 or K <= 0 or T <= 0 or sigma <= 0:
+            return jsonify({'success': False, 'error': 'All values must be positive'}), 400
+
+        # Create solver instance
+        solver = VIII_Solvers(S0=S0, K=K, T=T, r=r, sigma=sigma, n_sim=n_sim, t=0)
+
+        # Calculate BSM prices
+        bsm_call = solver.BSM_call()
+        bsm_put = solver.BSM_put()
+
+        # Calculate Greeks
+        delta = solver.call_delta()
+        gamma = solver.call_gamma()
+        vega = solver.call_vega()
+        theta = solver.call_theta()
+
+        # Calculate d1 and d2 for display
+        d1 = solver.d1()
+        d2 = solver.d2()
+
+        # Calculate put Greeks using put-call parity relationships
+        put_delta = delta - 1  # Put delta = Call delta - 1
+        put_gamma = gamma  # Same as call gamma
+        put_vega = vega  # Same as call vega
+        # Put theta calculation (simplified)
+        import numpy as np
+        from scipy.stats import norm
+        N_prime_d1 = np.exp((-d1 ** 2) / 2) / np.sqrt(2 * np.pi)
+        put_theta = ((-N_prime_d1 * S0 * sigma) / (np.sqrt(T) * 2)
+                     + r * K * np.exp(-r * T) * norm.cdf(-d2))
+
+        # Calculate Monte Carlo prices
+        mc_call = solver.mc_call()
+        mc_put = solver.mc_put()
+
+        # Calculate moneyness
+        moneyness = S0 / K
+        if moneyness > 1.02:
+            call_moneyness = 'ITM'
+            put_moneyness = 'OTM'
+        elif moneyness < 0.98:
+            call_moneyness = 'OTM'
+            put_moneyness = 'ITM'
+        else:
+            call_moneyness = 'ATM'
+            put_moneyness = 'ATM'
+
+        result = {
+            'success': True,
+            'inputs': {
+                'spot_price': S0,
+                'strike_price': K,
+                'time_to_maturity': T,
+                'time_to_maturity_days': int(T * 365),
+                'risk_free_rate': r,
+                'volatility': sigma,
+                'n_simulations': n_sim
+            },
+            'bsm': {
+                'call_price': float(bsm_call),
+                'put_price': float(bsm_put),
+                'd1': float(d1),
+                'd2': float(d2)
+            },
+            'monte_carlo': {
+                'call_price': float(mc_call),
+                'put_price': float(mc_put),
+                'call_error_pct': abs(mc_call - bsm_call) / bsm_call * 100 if bsm_call > 0 else 0,
+                'put_error_pct': abs(mc_put - bsm_put) / bsm_put * 100 if bsm_put > 0 else 0
+            },
+            'greeks': {
+                'call': {
+                    'delta': float(delta),
+                    'gamma': float(gamma),
+                    'vega': float(vega),
+                    'theta': float(theta),
+                    'theta_daily': float(theta / 365)
+                },
+                'put': {
+                    'delta': float(put_delta),
+                    'gamma': float(put_gamma),
+                    'vega': float(put_vega),
+                    'theta': float(put_theta),
+                    'theta_daily': float(put_theta / 365)
+                }
+            },
+            'analysis': {
+                'moneyness': float(moneyness),
+                'call_moneyness_status': call_moneyness,
+                'put_moneyness_status': put_moneyness,
+                'intrinsic_value_call': max(S0 - K, 0),
+                'intrinsic_value_put': max(K - S0, 0),
+                'time_value_call': float(bsm_call) - max(S0 - K, 0),
+                'time_value_put': float(bsm_put) - max(K - S0, 0)
+            }
+        }
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/option/market-prices/<ticker>', methods=['GET'])
+def get_market_option_prices(ticker):
+    """
+    Get real market option prices from Yahoo Finance for comparison.
+
+    Query params:
+    - strike: Optional target strike price
+    - expiry_index: Optional expiry date index (0 = nearest)
+    """
+    try:
+        stock = yf.Ticker(ticker.upper())
+
+        # Get available expiration dates
+        expirations = stock.options
+        if not expirations:
+            return jsonify({
+                'success': False,
+                'error': f'{ticker.upper()} does not have listed options'
+            }), 404
+
+        # Get expiry index (default to nearest)
+        expiry_index = request.args.get('expiry_index', 0, type=int)
+        if expiry_index >= len(expirations):
+            expiry_index = 0
+
+        expiry_date = expirations[expiry_index]
+
+        # Get option chain
+        opt_chain = stock.option_chain(expiry_date)
+        calls = opt_chain.calls
+        puts = opt_chain.puts
+
+        # Get current stock price
+        info = stock.info
+        spot_price = info.get('regularMarketPrice') or info.get('currentPrice') or info.get('previousClose')
+
+        if not spot_price:
+            # Fallback: get from history
+            hist = stock.history(period='1d')
+            if not hist.empty:
+                spot_price = float(hist['Close'].iloc[-1])
+            else:
+                return jsonify({'success': False, 'error': 'Could not fetch current price'}), 500
+
+        # Get target strike if specified
+        target_strike = request.args.get('strike', type=float)
+
+        # Calculate days to expiry
+        from datetime import datetime
+        expiry_dt = datetime.strptime(expiry_date, '%Y-%m-%d')
+        days_to_expiry = (expiry_dt - datetime.now()).days
+        time_to_maturity = max(days_to_expiry, 1) / 365.0
+
+        # Filter and format option data
+        def format_options(df, target_strike=None):
+            options = []
+            for _, row in df.iterrows():
+                strike = float(row['strike'])
+
+                # If target strike specified, only include close matches
+                if target_strike and abs(strike - target_strike) > target_strike * 0.1:
+                    continue
+
+                opt = {
+                    'strike': strike,
+                    'last_price': float(row['lastPrice']) if pd.notna(row['lastPrice']) else None,
+                    'bid': float(row['bid']) if pd.notna(row['bid']) else None,
+                    'ask': float(row['ask']) if pd.notna(row['ask']) else None,
+                    'volume': int(row['volume']) if pd.notna(row['volume']) else 0,
+                    'open_interest': int(row['openInterest']) if pd.notna(row['openInterest']) else 0,
+                    'implied_volatility': float(row['impliedVolatility']) if pd.notna(row['impliedVolatility']) else None
+                }
+
+                # Calculate mid price
+                if opt['bid'] and opt['ask']:
+                    opt['mid_price'] = (opt['bid'] + opt['ask']) / 2
+                else:
+                    opt['mid_price'] = opt['last_price']
+
+                options.append(opt)
+
+            return sorted(options, key=lambda x: x['strike'])
+
+        call_options = format_options(calls, target_strike)
+        put_options = format_options(puts, target_strike)
+
+        # Find ATM options (closest to spot price)
+        atm_call = min(call_options, key=lambda x: abs(x['strike'] - spot_price)) if call_options else None
+        atm_put = min(put_options, key=lambda x: abs(x['strike'] - spot_price)) if put_options else None
+
+        result = {
+            'success': True,
+            'ticker': ticker.upper(),
+            'spot_price': float(spot_price),
+            'expiry_date': expiry_date,
+            'days_to_expiry': days_to_expiry,
+            'time_to_maturity': time_to_maturity,
+            'available_expirations': list(expirations[:10]),  # First 10 expirations
+            'atm_call': atm_call,
+            'atm_put': atm_put,
+            'calls': call_options[:20],  # Limit to 20 strikes
+            'puts': put_options[:20]
+        }
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # Frontend routes
 @app.route('/')

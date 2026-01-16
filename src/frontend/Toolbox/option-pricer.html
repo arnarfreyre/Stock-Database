@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Option Pricer & Greeks Calculator</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        .container { max-width: 1100px; padding: 40px 30px; }
+        .main-header { padding: 1rem 0; margin-bottom: 1rem; }
+        .main-header h1 { font-size: 2.2em; margin-bottom: 0.2em; }
+        .main-header p { font-size: 1em; margin: 0; }
+
+        .section { margin-bottom: 1.5rem; }
+        .section h2 { font-size: 1.4em; margin-top: 0; margin-bottom: 0.8rem; }
+
+        .calculator { padding: 1.25rem; margin: 0; }
+        .input-group { margin-bottom: 0.8rem; }
+        .input-group label { margin-bottom: 0.3rem; font-size: 0.9em; }
+        .input-group small { font-size: 0.8em; }
+
+        .params-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.8rem;
+        }
+        @media (max-width: 900px) {
+            .params-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .params-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .params-grid input, .params-grid select {
+            padding: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .ticker-inline {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+        .ticker-inline input {
+            width: 100px;
+            padding: 0.5rem;
+        }
+        .ticker-inline .btn-secondary {
+            padding: 0.5rem 1rem;
+            font-size: 0.85em;
+        }
+
+        /* Compact pricing display */
+        .pricing-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        @media (max-width: 700px) {
+            .pricing-row { grid-template-columns: 1fr; }
+        }
+
+        .option-panel {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .option-panel.call { border-top: 3px solid #27ae60; }
+        .option-panel.put { border-top: 3px solid #e74c3c; }
+
+        .panel-header {
+            padding: 0.8rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+        .panel-header h3 {
+            margin: 0;
+            font-size: 1.1em;
+        }
+        .option-panel.call .panel-header h3 { color: #27ae60; }
+        .option-panel.put .panel-header h3 { color: #e74c3c; }
+
+        .moneyness-tag {
+            font-size: 0.75em;
+            padding: 0.2rem 0.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .moneyness-tag.itm { background: #d4edda; color: #155724; }
+        .moneyness-tag.atm { background: #fff3cd; color: #856404; }
+        .moneyness-tag.otm { background: #f8d7da; color: #721c24; }
+
+        .price-compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            text-align: center;
+        }
+        .price-compare > div {
+            padding: 0.8rem 0.5rem;
+        }
+        .price-compare > div:first-child {
+            border-right: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        .price-label {
+            font-size: 0.75em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .price-value {
+            font-size: 1.6em;
+            font-weight: bold;
+            margin-top: 0.2rem;
+        }
+        .option-panel.call .price-value { color: #27ae60; }
+        .option-panel.put .price-value { color: #e74c3c; }
+        .price-diff {
+            font-size: 0.75em;
+            margin-top: 0.2rem;
+        }
+        .price-diff.positive { color: #27ae60; }
+        .price-diff.negative { color: #e74c3c; }
+        .price-diff.neutral { color: #666; }
+
+        /* Compact Greeks */
+        .greeks-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            border-top: 1px solid #eee;
+        }
+        .greek-cell {
+            padding: 0.6rem 0.4rem;
+            text-align: center;
+            border-right: 1px solid #eee;
+        }
+        .greek-cell:last-child { border-right: none; }
+        .greek-symbol {
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #666;
+        }
+        .greek-value {
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        /* Value breakdown row */
+        .value-breakdown {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-top: 1px solid #eee;
+            font-size: 0.8em;
+        }
+        .value-breakdown > div {
+            padding: 0.5rem;
+            text-align: center;
+        }
+        .value-breakdown > div:first-child {
+            border-right: 1px solid #eee;
+        }
+        .value-breakdown .label { color: #888; }
+        .value-breakdown .val { font-weight: 600; color: #444; }
+
+        /* d-values compact */
+        .d-values-compact {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            padding: 0.6rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-top: 1rem;
+            font-size: 0.85em;
+        }
+        .d-item { text-align: center; }
+        .d-item .label { color: #666; font-weight: 600; }
+        .d-item .val { color: #2c3e50; font-family: monospace; }
+
+        /* Market info banner */
+        .market-banner {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+            border-left: 3px solid #f39c12;
+            padding: 0.6rem 1rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+            display: none;
+            font-size: 0.85em;
+        }
+        .market-banner.show { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+        .market-banner strong { color: #935610; }
+        .market-banner span { color: #666; }
+
+        /* Monte Carlo comparison */
+        .mc-comparison {
+            background: #f0f7ff;
+            border-radius: 6px;
+            padding: 0.6rem 1rem;
+            margin-top: 0.8rem;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            font-size: 0.85em;
+            text-align: center;
+        }
+        .mc-comparison .label { color: #666; font-size: 0.8em; }
+        .mc-comparison .val { font-weight: 600; color: #2c5282; }
+
+        /* Loading overlay */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-overlay.active { display: flex; }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #e74c3c;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Compact formula reference */
+        .formula-ref {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 0.8rem 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85em;
+            margin-top: 1rem;
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .formula-ref .var { color: #3498db; }
+        .formula-ref .op { color: #e74c3c; }
+
+        .btn-primary, .btn-secondary { padding: 0.5rem 1.2rem; font-size: 0.9em; }
+        .back-button { padding: 0.5rem 1rem; font-size: 0.9em; }
+        .info-message-box { margin-top: 0.5rem; margin-bottom: 0.5rem; }
+
+        .error-msg {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            padding: 0.6rem 1rem;
+            margin-top: 0.8rem;
+            border-radius: 4px;
+            display: none;
+            font-size: 0.9em;
+        }
+        .error-msg.show { display: block; }
+
+        /* Search dropdown */
+        .search-results-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .search-result-item {
+            padding: 0.5rem 0.8rem;
+            cursor: pointer;
+            font-size: 0.85em;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .search-result-item:hover { background: #f8f9fa; }
+        .search-result-symbol { font-weight: bold; color: #e74c3c; }
+        .search-result-name { color: #666; margin-left: 0.5rem; }
+        .ticker-search-wrapper { position: relative; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-header">
+            <h1>Option Pricer & Greeks</h1>
+            <p>Black-Scholes-Merton pricing with real market comparison</p>
+        </div>
+
+        <div class="info-message-box">
+            <button onclick="window.location.href='../my-tools.html'" class="back-button">&#8592; Back to Toolbox</button>
+        </div>
+
+        <!-- Input Parameters -->
+        <div class="section visible">
+            <div class="calculator">
+                <div class="params-grid">
+                    <div class="input-group">
+                        <label>Spot (S<sub>0</sub>)</label>
+                        <input type="number" id="spotPrice" value="100" min="0.01" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Strike (K)</label>
+                        <input type="number" id="strikePrice" value="105" min="0.01" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Time (Years)</label>
+                        <input type="number" id="timeToMaturity" value="1" min="0.001" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Rate r (%)</label>
+                        <input type="number" id="riskFreeRate" value="5" min="0" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label>Vol &#963; (%)</label>
+                        <input type="number" id="volatility" value="20" min="0.1" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label>MC Sims</label>
+                        <select id="nSimulations">
+                            <option value="10000">10K</option>
+                            <option value="50000">50K</option>
+                            <option value="100000" selected>100K</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button id="calculateBtn" class="btn-primary">Calculate</button>
+                    <button id="resetBtn" class="btn-secondary">Reset</button>
+
+                    <div class="ticker-inline">
+                        <span style="font-size: 0.85em; color: #666;">Compare with:</span>
+                        <div class="ticker-search-wrapper">
+                            <input type="text" id="tickerSearch" placeholder="AAPL..." autocomplete="off">
+                            <div id="searchResults" class="search-results-dropdown"></div>
+                        </div>
+                        <button id="fetchMarketBtn" class="btn-secondary">Fetch</button>
+                    </div>
+                </div>
+
+                <div id="errorMessage" class="error-msg"></div>
+            </div>
+        </div>
+
+        <!-- Market Info Banner -->
+        <div id="marketBanner" class="market-banner">
+            <div><strong id="marketTicker">--</strong></div>
+            <div><span>Spot:</span> <strong id="marketSpot">$--</strong></div>
+            <div><span>Expiry:</span> <strong id="marketExpiry">--</strong></div>
+            <div><span>DTE:</span> <strong id="marketDTE">--</strong></div>
+            <div><span>Market IV:</span> <strong id="marketIV">--%</strong></div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" style="display: none;">
+            <!-- Call and Put Panels Side by Side -->
+            <div class="pricing-row">
+                <!-- Call Option Panel -->
+                <div class="option-panel call">
+                    <div class="panel-header">
+                        <h3>CALL Option</h3>
+                        <span id="callMoneyness" class="moneyness-tag">--</span>
+                    </div>
+                    <div class="price-compare">
+                        <div>
+                            <div class="price-label">BSM Model</div>
+                            <div class="price-value">$<span id="callBSM">--</span></div>
+                            <div class="price-diff neutral">Theoretical</div>
+                        </div>
+                        <div>
+                            <div class="price-label">Market Price</div>
+                            <div class="price-value">$<span id="callMarket">--</span></div>
+                            <div class="price-diff" id="callDiff">No data</div>
+                        </div>
+                    </div>
+                    <div class="value-breakdown">
+                        <div><span class="label">Intrinsic:</span> <span class="val" id="callIntrinsic">$--</span></div>
+                        <div><span class="label">Time Value:</span> <span class="val" id="callTime">$--</span></div>
+                    </div>
+                    <div class="greeks-row">
+                        <div class="greek-cell">
+                            <div class="greek-symbol">&#916;</div>
+                            <div class="greek-value" id="callDelta">--</div>
+                        </div>
+                        <div class="greek-cell">
+                            <div class="greek-symbol">&#915;</div>
+                            <div class="greek-value" id="callGamma">--</div>
+                        </div>
+                        <div class="greek-cell">
+                            <div class="greek-symbol">&#957;</div>
+                            <div class="greek-value" id="callVega">--</div>
+                        </div>
+                        <div class="greek-cell">
+                            <div class="greek-symbol">&#920;</div>
+                            <div class="greek-value" id="callTheta">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Put Option Panel -->
+                <div class="option-panel put">
+                    <div class="panel-header">
+                        <h3>PUT Option</h3>
+                        <span id="putMoneyness" class="moneyness-tag">--</span>
+                    </div>
+                    <div class="price-compare">
+                        <div>
+                            <div class="price-label">BSM Model</div>
+                            <div class="price-value">$<span id="putBSM">--</span></div>
+                            <div class="price-diff neutral">Theoretical</div>
+                        </div>
+                        <div>
+                            <div class="price-label">Market Price</div>
+                            <div class="price-value">$<span id="putMarket">--</span></div>
+                            <div class="price-diff" id="putDiff">No data</div>
+                        </div>
+                    </div>
+                    <div class="value-breakdown">
+                        <div><span class="label">Intrinsic:</span> <span class="val" id="putIntrinsic">$--</span></div>
+                        <div><span class="label">Time Value:</span> <span class="val" id="putTime">$--</span></div>
+                    </div>
+                    <div class="greeks-row">
+                        <div class="greek-cell">
+                            <div class="greek-symbol">&#916;</div>
+                            <div class="greek-value" id="putDelta">--</div>
+                        </div>
+                        <div class="greek-cell">
+                            <div class="greek-symbol">&#915;</div>
+                            <div class="greek-value" id="putGamma">--</div>
+                        </div>
+                        <div class="greek-cell">
+                            <div class="greek-symbol">&#957;</div>
+                            <div class="greek-value" id="putVega">--</div>
+                        </div>
+                        <div class="greek-cell">
+                            <div class="greek-symbol">&#920;</div>
+                            <div class="greek-value" id="putTheta">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- d-values and Monte Carlo -->
+            <div class="d-values-compact">
+                <div class="d-item"><span class="label">d<sub>1</sub></span> <span class="val" id="d1">--</span></div>
+                <div class="d-item"><span class="label">d<sub>2</sub></span> <span class="val" id="d2">--</span></div>
+                <div class="d-item"><span class="label">N(d<sub>1</sub>)</span> <span class="val" id="nd1">--</span></div>
+                <div class="d-item"><span class="label">N(d<sub>2</sub>)</span> <span class="val" id="nd2">--</span></div>
+            </div>
+
+            <div class="mc-comparison">
+                <div>
+                    <div class="label">MC Call</div>
+                    <div class="val" id="mcCall">$--</div>
+                </div>
+                <div>
+                    <div class="label">MC Error</div>
+                    <div class="val" id="mcCallErr">--%</div>
+                </div>
+                <div>
+                    <div class="label">MC Put</div>
+                    <div class="val" id="mcPut">$--</div>
+                </div>
+                <div>
+                    <div class="label">MC Error</div>
+                    <div class="val" id="mcPutErr">--%</div>
+                </div>
+            </div>
+
+            <!-- Compact Formula Reference -->
+            <div class="formula-ref">
+                <div><span class="var">C</span> <span class="op">=</span> S&#8320;N(d&#8321;) - Ke<sup>-rT</sup>N(d&#8322;)</div>
+                <div><span class="var">P</span> <span class="op">=</span> Ke<sup>-rT</sup>N(-d&#8322;) - S&#8320;N(-d&#8321;)</div>
+                <div><span class="var">d&#8321;</span> <span class="op">=</span> [ln(S/K) + (r+&#963;&#178;/2)T] / &#963;&#8730;T</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5001/api';
+        let marketData = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('calculateBtn').addEventListener('click', calculate);
+            document.getElementById('resetBtn').addEventListener('click', reset);
+            document.getElementById('fetchMarketBtn').addEventListener('click', fetchMarket);
+
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+                input.addEventListener('keypress', e => { if (e.key === 'Enter') calculate(); });
+            });
+
+            document.getElementById('tickerSearch').addEventListener('keypress', e => {
+                if (e.key === 'Enter') fetchMarket();
+            });
+
+            setupSearch();
+        });
+
+        function setupSearch() {
+            const input = document.getElementById('tickerSearch');
+            const results = document.getElementById('searchResults');
+            let timeout;
+
+            input.addEventListener('input', function() {
+                clearTimeout(timeout);
+                if (this.value.length < 1) { results.style.display = 'none'; return; }
+                timeout = setTimeout(() => searchTickers(this.value), 300);
+            });
+
+            document.addEventListener('click', e => {
+                if (!e.target.closest('.ticker-search-wrapper')) results.style.display = 'none';
+            });
+        }
+
+        async function searchTickers(query) {
+            const results = document.getElementById('searchResults');
+            try {
+                const res = await fetch(`${API_BASE_URL}/search/tickers?q=${encodeURIComponent(query)}&limit=8`);
+                const data = await res.json();
+
+                if (data.success && data.results.length > 0) {
+                    results.innerHTML = data.results.map(s =>
+                        `<div class="search-result-item" data-symbol="${s.symbol}">
+                            <span class="search-result-symbol">${s.symbol}</span>
+                            <span class="search-result-name">${s.name}</span>
+                        </div>`
+                    ).join('');
+
+                    results.querySelectorAll('.search-result-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            document.getElementById('tickerSearch').value = item.dataset.symbol;
+                            results.style.display = 'none';
+                        });
+                    });
+                    results.style.display = 'block';
+                } else {
+                    results.innerHTML = '<div class="search-result-item">No results</div>';
+                    results.style.display = 'block';
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function calculate() {
+            const S = parseFloat(document.getElementById('spotPrice').value);
+            const K = parseFloat(document.getElementById('strikePrice').value);
+            const T = parseFloat(document.getElementById('timeToMaturity').value);
+            const r = parseFloat(document.getElementById('riskFreeRate').value) / 100;
+            const sigma = parseFloat(document.getElementById('volatility').value) / 100;
+            const n = parseInt(document.getElementById('nSimulations').value);
+
+            if ([S, K, T, r, sigma].some(isNaN) || S <= 0 || K <= 0 || T <= 0 || sigma <= 0) {
+                showError('Enter valid positive values for all parameters');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/option/price`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        spot_price: S, strike_price: K, time_to_maturity: T,
+                        risk_free_rate: r, volatility: sigma, n_simulations: n
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    showError(data.error);
+                }
+            } catch (e) {
+                showError('Calculation error: ' + e.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('resultsSection').style.display = 'block';
+
+            // BSM Prices
+            document.getElementById('callBSM').textContent = data.bsm.call_price.toFixed(2);
+            document.getElementById('putBSM').textContent = data.bsm.put_price.toFixed(2);
+
+            // Moneyness
+            setMoneyness('callMoneyness', data.analysis.call_moneyness_status);
+            setMoneyness('putMoneyness', data.analysis.put_moneyness_status);
+
+            // Intrinsic/Time Value
+            document.getElementById('callIntrinsic').textContent = '$' + data.analysis.intrinsic_value_call.toFixed(2);
+            document.getElementById('callTime').textContent = '$' + data.analysis.time_value_call.toFixed(2);
+            document.getElementById('putIntrinsic').textContent = '$' + data.analysis.intrinsic_value_put.toFixed(2);
+            document.getElementById('putTime').textContent = '$' + data.analysis.time_value_put.toFixed(2);
+
+            // Greeks
+            document.getElementById('callDelta').textContent = data.greeks.call.delta.toFixed(3);
+            document.getElementById('callGamma').textContent = data.greeks.call.gamma.toFixed(4);
+            document.getElementById('callVega').textContent = (data.greeks.call.vega / 100).toFixed(3);
+            document.getElementById('callTheta').textContent = data.greeks.call.theta_daily.toFixed(3);
+
+            document.getElementById('putDelta').textContent = data.greeks.put.delta.toFixed(3);
+            document.getElementById('putGamma').textContent = data.greeks.put.gamma.toFixed(4);
+            document.getElementById('putVega').textContent = (data.greeks.put.vega / 100).toFixed(3);
+            document.getElementById('putTheta').textContent = data.greeks.put.theta_daily.toFixed(3);
+
+            // d-values
+            document.getElementById('d1').textContent = data.bsm.d1.toFixed(4);
+            document.getElementById('d2').textContent = data.bsm.d2.toFixed(4);
+            document.getElementById('nd1').textContent = normalCDF(data.bsm.d1).toFixed(4);
+            document.getElementById('nd2').textContent = normalCDF(data.bsm.d2).toFixed(4);
+
+            // Monte Carlo
+            document.getElementById('mcCall').textContent = '$' + data.monte_carlo.call_price.toFixed(2);
+            document.getElementById('mcPut').textContent = '$' + data.monte_carlo.put_price.toFixed(2);
+            document.getElementById('mcCallErr').textContent = data.monte_carlo.call_error_pct.toFixed(2) + '%';
+            document.getElementById('mcPutErr').textContent = data.monte_carlo.put_error_pct.toFixed(2) + '%';
+
+            // Update market comparison if we have data
+            if (marketData) {
+                updateMarketComparison(data.bsm.call_price, data.bsm.put_price);
+            }
+        }
+
+        async function fetchMarket() {
+            const ticker = document.getElementById('tickerSearch').value.trim().toUpperCase();
+            if (!ticker) { showError('Enter a ticker symbol'); return; }
+
+            showLoading(true);
+            hideError();
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/option/market-prices/${ticker}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    marketData = data;
+
+                    // Show market banner
+                    document.getElementById('marketBanner').classList.add('show');
+                    document.getElementById('marketTicker').textContent = data.ticker;
+                    document.getElementById('marketSpot').textContent = '$' + data.spot_price.toFixed(2);
+                    document.getElementById('marketExpiry').textContent = data.expiry_date;
+                    document.getElementById('marketDTE').textContent = data.days_to_expiry + 'd';
+
+                    if (data.atm_call?.implied_volatility) {
+                        document.getElementById('marketIV').textContent = (data.atm_call.implied_volatility * 100).toFixed(1) + '%';
+                    }
+
+                    // Auto-fill parameters
+                    document.getElementById('spotPrice').value = data.spot_price.toFixed(2);
+                    document.getElementById('timeToMaturity').value = data.time_to_maturity.toFixed(4);
+
+                    if (data.atm_call) {
+                        document.getElementById('strikePrice').value = data.atm_call.strike.toFixed(2);
+                        if (data.atm_call.implied_volatility) {
+                            document.getElementById('volatility').value = (data.atm_call.implied_volatility * 100).toFixed(1);
+                        }
+                    }
+
+                    // Calculate with new params
+                    await calculate();
+
+                    // Update market prices display
+                    if (data.atm_call) {
+                        const callMkt = data.atm_call.mid_price || data.atm_call.last_price || 0;
+                        document.getElementById('callMarket').textContent = callMkt.toFixed(2);
+                    }
+                    if (data.atm_put) {
+                        const putMkt = data.atm_put.mid_price || data.atm_put.last_price || 0;
+                        document.getElementById('putMarket').textContent = putMkt.toFixed(2);
+                    }
+
+                    // Update diffs
+                    const bsmCall = parseFloat(document.getElementById('callBSM').textContent);
+                    const bsmPut = parseFloat(document.getElementById('putBSM').textContent);
+                    updateMarketComparison(bsmCall, bsmPut);
+                } else {
+                    showError(data.error);
+                }
+            } catch (e) {
+                showError('Error fetching market data: ' + e.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateMarketComparison(bsmCall, bsmPut) {
+            if (!marketData) return;
+
+            if (marketData.atm_call) {
+                const mktCall = marketData.atm_call.mid_price || marketData.atm_call.last_price || 0;
+                document.getElementById('callMarket').textContent = mktCall.toFixed(2);
+                const diffCall = ((mktCall - bsmCall) / bsmCall * 100);
+                const diffEl = document.getElementById('callDiff');
+                diffEl.textContent = (diffCall >= 0 ? '+' : '') + diffCall.toFixed(1) + '% vs BSM';
+                diffEl.className = 'price-diff ' + (Math.abs(diffCall) < 5 ? 'positive' : 'negative');
+            }
+
+            if (marketData.atm_put) {
+                const mktPut = marketData.atm_put.mid_price || marketData.atm_put.last_price || 0;
+                document.getElementById('putMarket').textContent = mktPut.toFixed(2);
+                const diffPut = ((mktPut - bsmPut) / bsmPut * 100);
+                const diffEl = document.getElementById('putDiff');
+                diffEl.textContent = (diffPut >= 0 ? '+' : '') + diffPut.toFixed(1) + '% vs BSM';
+                diffEl.className = 'price-diff ' + (Math.abs(diffPut) < 5 ? 'positive' : 'negative');
+            }
+        }
+
+        function setMoneyness(id, status) {
+            const el = document.getElementById(id);
+            el.textContent = status;
+            el.className = 'moneyness-tag ' + status.toLowerCase();
+        }
+
+        function normalCDF(x) {
+            const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+            const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+            const sign = x < 0 ? -1 : 1;
+            x = Math.abs(x) / Math.sqrt(2);
+            const t = 1.0 / (1.0 + p * x);
+            const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+            return 0.5 * (1.0 + sign * y);
+        }
+
+        function reset() {
+            document.getElementById('spotPrice').value = 100;
+            document.getElementById('strikePrice').value = 105;
+            document.getElementById('timeToMaturity').value = 1;
+            document.getElementById('riskFreeRate').value = 5;
+            document.getElementById('volatility').value = 20;
+            document.getElementById('nSimulations').value = 100000;
+            document.getElementById('tickerSearch').value = '';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('marketBanner').classList.remove('show');
+            document.getElementById('callMarket').textContent = '--';
+            document.getElementById('putMarket').textContent = '--';
+            document.getElementById('callDiff').textContent = 'No data';
+            document.getElementById('callDiff').className = 'price-diff neutral';
+            document.getElementById('putDiff').textContent = 'No data';
+            document.getElementById('putDiff').className = 'price-diff neutral';
+            marketData = null;
+            hideError();
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').classList.toggle('active', show);
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = msg;
+            el.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+    </script>
+</body>
+</html>
