@@ -21,7 +21,7 @@
 
         .params-grid {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             gap: 0.8rem;
         }
         @media (max-width: 900px) {
@@ -334,6 +334,10 @@
                         <input type="number" id="volatility" value="20" min="0.1" step="0.1">
                     </div>
                     <div class="input-group">
+                        <label>Div q (%)</label>
+                        <input type="number" id="dividendYield" value="0" min="0" step="0.1">
+                    </div>
+                    <div class="input-group">
                         <label>MC Sims</label>
                         <select id="nSimulations">
                             <option value="10000">10K</option>
@@ -488,9 +492,9 @@
 
             <!-- Compact Formula Reference -->
             <div class="formula-ref">
-                <div><span class="var">C</span> <span class="op">=</span> S&#8320;N(d&#8321;) - Ke<sup>-rT</sup>N(d&#8322;)</div>
-                <div><span class="var">P</span> <span class="op">=</span> Ke<sup>-rT</sup>N(-d&#8322;) - S&#8320;N(-d&#8321;)</div>
-                <div><span class="var">d&#8321;</span> <span class="op">=</span> [ln(S/K) + (r+&#963;&#178;/2)T] / &#963;&#8730;T</div>
+                <div><span class="var">C</span> <span class="op">=</span> S&#8320;e<sup>-qT</sup>N(d&#8321;) - Ke<sup>-rT</sup>N(d&#8322;)</div>
+                <div><span class="var">P</span> <span class="op">=</span> Ke<sup>-rT</sup>N(-d&#8322;) - S&#8320;e<sup>-qT</sup>N(-d&#8321;)</div>
+                <div><span class="var">d&#8321;</span> <span class="op">=</span> [ln(S/K) + (r-q+&#963;&#178;/2)T] / &#963;&#8730;T</div>
             </div>
         </div>
     </div>
@@ -570,6 +574,7 @@
             const T = parseFloat(document.getElementById('timeToMaturity').value);
             const r = parseFloat(document.getElementById('riskFreeRate').value) / 100;
             const sigma = parseFloat(document.getElementById('volatility').value) / 100;
+            const q = parseFloat(document.getElementById('dividendYield').value) / 100;
             const n = parseInt(document.getElementById('nSimulations').value);
 
             if ([S, K, T, r, sigma].some(isNaN) || S <= 0 || K <= 0 || T <= 0 || sigma <= 0) {
@@ -586,7 +591,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         spot_price: S, strike_price: K, time_to_maturity: T,
-                        risk_free_rate: r, volatility: sigma, n_simulations: n
+                        risk_free_rate: r, volatility: sigma, dividend_yield: q, n_simulations: n
                     })
                 });
                 const data = await res.json();
@@ -756,6 +761,7 @@
             document.getElementById('timeToMaturity').value = 1;
             document.getElementById('riskFreeRate').value = 5;
             document.getElementById('volatility').value = 20;
+            document.getElementById('dividendYield').value = 0;
             document.getElementById('nSimulations').value = 100000;
             document.getElementById('tickerSearch').value = '';
             document.getElementById('resultsSection').style.display = 'none';

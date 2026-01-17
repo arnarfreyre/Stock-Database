@@ -739,14 +739,15 @@ def calculate_option_price():
         T = float(data['time_to_maturity'])
         r = float(data['risk_free_rate'])
         sigma = float(data['volatility'])
+        q = float(data.get('dividend_yield', 0))  # Continuous dividend yield
         n_sim = int(data.get('n_simulations', 100000))
 
         # Validate parameters
         if S0 <= 0 or K <= 0 or T <= 0 or sigma <= 0:
             return jsonify({'success': False, 'error': 'All values must be positive'}), 400
 
-        # Create solver instance
-        solver = VIII_Solvers(S0=S0, K=K, T=T, r=r, sigma=sigma, n_sim=n_sim, t=0)
+        # Create solver instance with dividend yield
+        solver = VIII_Solvers(S0=S0, K=K, T=T, r=r, sigma=sigma, n_sim=n_sim, t=0, q=q)
 
         # Calculate BSM prices
         bsm_call = solver.BSM_call()
@@ -762,15 +763,16 @@ def calculate_option_price():
         d1 = solver.d1()
         d2 = solver.d2()
 
-        # Calculate put Greeks using put-call parity relationships
-        put_delta = delta - 1  # Put delta = Call delta - 1
-        put_gamma = gamma  # Same as call gamma
-        put_vega = vega  # Same as call vega
-        # Put theta calculation (simplified)
+        # Calculate put Greeks using put-call parity relationships (with dividends)
         import numpy as np
         from scipy.stats import norm
+        put_delta = delta - np.exp(-q * T)  # Put delta = Call delta - e^(-qT)
+        put_gamma = gamma  # Same as call gamma
+        put_vega = vega  # Same as call vega
+        # Put theta calculation with dividends
         N_prime_d1 = np.exp((-d1 ** 2) / 2) / np.sqrt(2 * np.pi)
-        put_theta = ((-N_prime_d1 * S0 * sigma) / (np.sqrt(T) * 2)
+        put_theta = (-np.exp(-q * T) * S0 * N_prime_d1 * sigma / (2 * np.sqrt(T))
+                     - q * S0 * np.exp(-q * T) * norm.cdf(-d1)
                      + r * K * np.exp(-r * T) * norm.cdf(-d2))
 
         # Calculate Monte Carlo prices
@@ -798,6 +800,7 @@ def calculate_option_price():
                 'time_to_maturity_days': int(T * 365),
                 'risk_free_rate': r,
                 'volatility': sigma,
+                'dividend_yield': q,
                 'n_simulations': n_sim
             },
             'bsm': {
